@@ -107,4 +107,28 @@ export const JojoEffects = {
             }
         });
     },
+
+    // Эхо-тень / шлейф стенда при рывке и атаке
+    spawnAfterimage(scene, sprite, tint, duration = 240) {
+        if (!sprite || !sprite.active || !sprite.visible) return;
+
+        const echo = scene.add.sprite(sprite.x, sprite.y, sprite.texture.key, sprite.frame.name);
+        echo.setDisplaySize(sprite.displayWidth, sprite.displayHeight);
+        echo.setFlipX(sprite.flipX);
+        echo.setOrigin(sprite.originX, sprite.originY);
+        echo.setDepth(sprite.depth - 1);
+        echo.setTint(tint);
+        echo.setAlpha(0.65);
+        echo.setBlendMode(Phaser.BlendModes.ADD);
+
+        scene.tweens.add({
+            targets: echo,
+            alpha: 0,
+            scaleX: echo.scaleX * 1.08,
+            scaleY: echo.scaleY * 1.08,
+            duration: duration,
+            ease: 'Power1',
+            onComplete: () => echo.destroy(),
+        });
+    },
 };

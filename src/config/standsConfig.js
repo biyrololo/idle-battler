@@ -6,7 +6,9 @@
 // 3. Настрой боевые параметры: урон (damage), дальность (attackRange), отталкивание (knockback), тип атаки.
 
 export const STAND_OFFSET = { x: -55, y: -65 }; // позиция стенда относительно игрока
-export const STAND_ALPHA = 0.88;
+export const STAND_ALPHA = 0.98; // Четкое, непрозрачное тело стенда (не теряется на фоне!)
+export const AURA_ALPHA = 0.42;  // Полупрозрачная светящаяся аура за стендом
+export const AURA_SCALE = 1.08;  // Масштаб ауры относительно тела стенда
 export const FOLLOW_LERP = 0.16;
 
 export const STANDS = [

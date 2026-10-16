@@ -4,7 +4,7 @@
 
 import * as Phaser from 'phaser';
 import { GAME_CONFIG, PLAYER_CONFIG } from './config/gameConfig';
-import { STANDS, STAND_OFFSET, STAND_ALPHA, FOLLOW_LERP } from './config/standsConfig';
+import { STANDS, STAND_OFFSET, STAND_ALPHA, AURA_ALPHA, AURA_SCALE, FOLLOW_LERP } from './config/standsConfig';
 import { ENEMY_TYPES, WAVES_CONFIG } from './config/enemiesConfig';
 import Player from './entities/Player';
 import Enemy from './entities/Enemy';
@@ -19,6 +19,9 @@ export default class GameScene extends Phaser.Scene {
         this.standAttacking = false;
         this.currentStandIndex = 0;
         this._standSprites = {};
+        this._standAuraSprites = {};
+        this.stand = null;
+        this.standAura = null;
         this._pulseTween = null;
 
         // Игровая статистика
@@ -218,15 +221,30 @@ export default class GameScene extends Phaser.Scene {
     // ─────────────────────────────────────────────
     createStands() {
         this._standSprites = {};
+        this._standAuraSprites = {};
+
         STANDS.forEach(cfg => {
+            // 1. АУРА СТЕНДА (парит прямо за стендом со свечением)
+            const auraSpr = this.physics.add.sprite(this.player.x, this.player.y - 70, cfg.texture);
+            auraSpr.setDisplaySize(cfg.frameW * cfg.scale * AURA_SCALE, cfg.frameH * cfg.scale * AURA_SCALE);
+            auraSpr.setDepth(17); // за основным телом стенда
+            auraSpr.setVisible(false);
+            auraSpr.setAlpha(0);
+            auraSpr.body.enable = false;
+            auraSpr.setTint(cfg.tint);
+            auraSpr.setBlendMode(Phaser.BlendModes.ADD);
+            auraSpr.anims.play(`${cfg.id}-idle`);
+            this._standAuraSprites[cfg.id] = auraSpr;
+
+            // 2. ОСНОВНОЕ ТЕЛО СТЕНДА (Четкое, непрозрачное, в оригинальных цветах пиксель-арта!)
             const spr = this.physics.add.sprite(this.player.x, this.player.y - 70, cfg.texture);
             spr.setDisplaySize(cfg.frameW * cfg.scale, cfg.frameH * cfg.scale);
-            spr.setDepth(18);
+            spr.setDepth(18); // над аурой
             spr.setVisible(false);
             spr.setAlpha(0);
             spr.body.enable = false;
-            spr.setTint(cfg.tint);
-            spr.setBlendMode(Phaser.BlendModes.ADD);
+            spr.clearTint(); // оригинальные цвета спрайта не перекрашиваются в однотонную грязь!
+            spr.setBlendMode(Phaser.BlendModes.NORMAL); // нормальный режим смешивания — не выцветает на песке!
             spr.anims.play(`${cfg.id}-idle`);
 
             spr.on(`animationcomplete-${cfg.id}-attack`, this.onAttackComplete, this);
@@ -234,6 +252,7 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.stand = this._standSprites[STANDS[this.currentStandIndex].id];
+        this.standAura = this._standAuraSprites[STANDS[this.currentStandIndex].id];
     }
 
     // ─────────────────────────────────────────────
@@ -461,12 +480,15 @@ export default class GameScene extends Phaser.Scene {
     handleStandFollow() {
         if (this.standAttacking || !this.stand) return;
 
-        const { player, stand } = this;
+        const { player, stand, standAura } = this;
         const facingRight = !player.flipX;
+
+        // Плавное парение (мистическая левитация стенда вверх-вниз)
+        const hoverY = Math.sin(this.time.now / 260) * 8;
 
         // Позиционируем относительно верхней части тела игрока (player.y - 70)
         const targetX = player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
-        const targetY = (player.y - 70) + STAND_OFFSET.y;
+        const targetY = (player.y - 70) + STAND_OFFSET.y + hoverY;
 
         const dx = targetX - stand.x;
         const dy = targetY - stand.y;
@@ -474,22 +496,40 @@ export default class GameScene extends Phaser.Scene {
 
         if (dist < 2) {
             stand.setVelocity(0, 0);
+            if (standAura) standAura.setVelocity(0, 0);
             return;
         }
 
+        // Плавный полет стенда за игроком
         stand.x = Phaser.Math.Linear(stand.x, targetX, FOLLOW_LERP);
         stand.y = Phaser.Math.Linear(stand.y, targetY, FOLLOW_LERP);
 
-        const cfg = STANDS[this.currentStandIndex];
-        stand.setFlipX(cfg.flip ? !player.flipX : player.flipX);
+        // Аура строго повторяет позицию и ориентацию
+        if (standAura) {
+            standAura.x = stand.x;
+            standAura.y = stand.y;
+        }
 
+        const cfg = STANDS[this.currentStandIndex];
+        const flip = cfg.flip ? !player.flipX : player.flipX;
+        stand.setFlipX(flip);
+        if (standAura) standAura.setFlipX(flip);
+
+        // Синхронизация анимаций
         if (dist > 6) {
             if (stand.anims.currentAnim?.key !== `${cfg.id}-walk`) {
                 stand.anims.play(`${cfg.id}-walk`, true);
+                if (standAura) standAura.anims.play(`${cfg.id}-walk`, true);
+            }
+
+            // Шлейф (эхо-тени) при быстром перемещении
+            if (Math.random() < 0.12) {
+                JojoEffects.spawnAfterimage(this, stand, cfg.tint, 180);
             }
         } else {
             if (stand.anims.currentAnim?.key !== `${cfg.id}-idle`) {
                 stand.anims.play(`${cfg.id}-idle`, true);
+                if (standAura) standAura.anims.play(`${cfg.id}-idle`, true);
             }
         }
     }
@@ -517,15 +557,41 @@ export default class GameScene extends Phaser.Scene {
     summonStand() {
         const cfg = STANDS[this.currentStandIndex];
         const facingRight = !this.player.flipX;
+        const flip = cfg.flip ? !this.player.flipX : this.player.flipX;
 
-        this.stand.x = this.player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
-        this.stand.y = (this.player.y - 70) + STAND_OFFSET.y;
-        this.stand.setFlipX(cfg.flip ? !this.player.flipX : this.player.flipX);
+        const startX = this.player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
+        const startY = (this.player.y - 70) + STAND_OFFSET.y;
+
+        // 1. Аура стенда
+        if (this.standAura) {
+            this.standAura.x = startX;
+            this.standAura.y = startY;
+            this.standAura.setFlipX(flip);
+            this.standAura.setVisible(true);
+            this.standAura.setAlpha(0);
+            this.standAura.setScale(0.3);
+            this.standAura.setTint(cfg.tint);
+            this.standAura.anims.play(`${cfg.id}-idle`);
+
+            this.tweens.add({
+                targets: this.standAura,
+                alpha: AURA_ALPHA,
+                scaleX: (cfg.frameW * cfg.scale * AURA_SCALE) / cfg.frameW,
+                scaleY: (cfg.frameH * cfg.scale * AURA_SCALE) / cfg.frameH,
+                duration: 260,
+                ease: 'Back.Out',
+            });
+        }
+
+        // 2. Тело стенда (непрозрачное, четкое!)
+        this.stand.x = startX;
+        this.stand.y = startY;
+        this.stand.setFlipX(flip);
         this.stand.setVisible(true);
         this.stand.body.enable = true;
         this.stand.setAlpha(0);
         this.stand.setScale(0.3);
-        this.stand.setTint(cfg.tint);
+        this.stand.clearTint();
         this.stand.anims.play(`${cfg.id}-idle`);
 
         if (this._pulseTween) { this._pulseTween.stop(); this._pulseTween = null; }
@@ -533,8 +599,8 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({
             targets: this.stand,
             alpha: STAND_ALPHA,
-            scaleX: cfg.frameW * cfg.scale / cfg.frameW,
-            scaleY: cfg.frameH * cfg.scale / cfg.frameH,
+            scaleX: (cfg.frameW * cfg.scale) / cfg.frameW,
+            scaleY: (cfg.frameH * cfg.scale) / cfg.frameH,
             duration: 260,
             ease: 'Back.Out',
             onComplete: () => this.startPulse(),
@@ -546,6 +612,27 @@ export default class GameScene extends Phaser.Scene {
         if (this._pulseTween) { this._pulseTween.stop(); this._pulseTween = null; }
 
         const cfg = STANDS[this.currentStandIndex];
+
+        // Убираем ауру
+        if (this.standAura) {
+            this.tweens.add({
+                targets: this.standAura,
+                alpha: 0,
+                scaleX: 0.2,
+                scaleY: 0.2,
+                duration: 200,
+                ease: 'Sine.In',
+                onComplete: () => {
+                    this.standAura.setVisible(false);
+                    this.standAura.setScale(
+                        (cfg.frameW * cfg.scale * AURA_SCALE) / cfg.frameW,
+                        (cfg.frameH * cfg.scale * AURA_SCALE) / cfg.frameH
+                    );
+                },
+            });
+        }
+
+        // Убираем тело стенда
         this.tweens.add({
             targets: this.stand,
             alpha: 0,
@@ -558,19 +645,30 @@ export default class GameScene extends Phaser.Scene {
                 this.stand.body.enable = false;
                 this.stand.setVelocity(0, 0);
                 this.stand.setScale(
-                    cfg.frameW * cfg.scale / cfg.frameW,
-                    cfg.frameH * cfg.scale / cfg.frameH,
+                    (cfg.frameW * cfg.scale) / cfg.frameW,
+                    (cfg.frameH * cfg.scale) / cfg.frameH
                 );
             },
         });
     }
 
     startPulse() {
-        if (!this.standSummoned || this.standAttacking) return;
+        if (!this.standSummoned || this.standAttacking || !this.standAura) return;
+        const cfg = STANDS[this.currentStandIndex];
+
+        // Пульсирует АУРА, а не тело стенда (тело остается четким и читаемым на фоне!)
         this._pulseTween = this.tweens.add({
-            targets: this.stand,
-            alpha: { from: STAND_ALPHA, to: STAND_ALPHA - 0.25 },
-            duration: 800,
+            targets: this.standAura,
+            alpha: { from: AURA_ALPHA, to: AURA_ALPHA + 0.22 },
+            scaleX: {
+                from: (cfg.frameW * cfg.scale * AURA_SCALE) / cfg.frameW,
+                to: (cfg.frameW * cfg.scale * (AURA_SCALE + 0.05)) / cfg.frameW,
+            },
+            scaleY: {
+                from: (cfg.frameH * cfg.scale * AURA_SCALE) / cfg.frameH,
+                to: (cfg.frameH * cfg.scale * (AURA_SCALE + 0.05)) / cfg.frameH,
+            },
+            duration: 750,
             ease: 'Sine.InOut',
             yoyo: true,
             repeat: -1,
@@ -585,12 +683,13 @@ export default class GameScene extends Phaser.Scene {
 
         const wasSummoned = this.standSummoned;
         if (wasSummoned) {
-            this.hideStandImmediate(this.stand);
+            this.hideStandImmediate();
             this.standSummoned = false;
         }
 
         this.currentStandIndex = (this.currentStandIndex + direction + STANDS.length) % STANDS.length;
         this.stand = this._standSprites[STANDS[this.currentStandIndex].id];
+        this.standAura = this._standAuraSprites[STANDS[this.currentStandIndex].id];
 
         this.updateStandCardUI();
 
@@ -600,15 +699,28 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    hideStandImmediate(spr) {
+    hideStandImmediate() {
         if (this._pulseTween) { this._pulseTween.stop(); this._pulseTween = null; }
-        spr.setVisible(false);
-        spr.setAlpha(0);
-        spr.body.enable = false;
-        spr.setVelocity(0, 0);
-        const cfg = STANDS.find(c => this._standSprites[c.id] === spr);
-        if (cfg) {
-            spr.setScale(cfg.frameW * cfg.scale / cfg.frameW, cfg.frameH * cfg.scale / cfg.frameH);
+
+        if (this.stand) {
+            this.stand.setVisible(false);
+            this.stand.setAlpha(0);
+            this.stand.body.enable = false;
+            this.stand.setVelocity(0, 0);
+            const cfg = STANDS[this.currentStandIndex];
+            this.stand.setScale((cfg.frameW * cfg.scale) / cfg.frameW, (cfg.frameH * cfg.scale) / cfg.frameH);
+        }
+
+        if (this.standAura) {
+            this.standAura.setVisible(false);
+            this.standAura.setAlpha(0);
+            this.standAura.body.enable = false;
+            this.standAura.setVelocity(0, 0);
+            const cfg = STANDS[this.currentStandIndex];
+            this.standAura.setScale(
+                (cfg.frameW * cfg.scale * AURA_SCALE) / cfg.frameW,
+                (cfg.frameH * cfg.scale * AURA_SCALE) / cfg.frameH
+            );
         }
     }
 
@@ -634,17 +746,19 @@ export default class GameScene extends Phaser.Scene {
         const facingRight = !this.player.flipX;
 
         // Рывок стенда вперед
-        this.stand.x += facingRight ? cfg.attackOffset : -cfg.attackOffset;
+        const forwardOffset = facingRight ? cfg.attackOffset : -cfg.attackOffset;
+        this.stand.x += forwardOffset;
         this.stand.y -= 8;
         this.stand.setVelocity(0, 0);
-        this.stand.setTint(cfg.attackTint);
 
-        this.tweens.add({
-            targets: this.stand,
-            alpha: 1,
-            duration: 80,
-            ease: 'Linear',
-        });
+        if (this.standAura) {
+            this.standAura.x = this.stand.x;
+            this.standAura.y = this.stand.y;
+            this.standAura.setAlpha(0.85); // вспышка ауры при ударе
+        }
+
+        // Шлейф (эхо-тень) при выпаде
+        JojoEffects.spawnAfterimage(this, this.stand, cfg.attackTint, 300);
 
         // Камера и звук
         this.cameras.main.shake(140, cfg.cameraShake);
@@ -658,6 +772,9 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.stand.anims.play(`${cfg.id}-attack`);
+        if (this.standAura) {
+            this.standAura.anims.play(`${cfg.id}-attack`);
+        }
 
         // Выполнение ударов (мультихит ORA ORA или тяжелый удар)
         const hitInterval = Math.max(70, Math.floor(cfg.attackDuration / cfg.hitsCount));
@@ -680,6 +797,9 @@ export default class GameScene extends Phaser.Scene {
         let hitAny = false;
         const damageMultiplier = this.isTimeStopped ? 2.0 : 1.0;
         const effectiveDamage = Math.round(cfg.damage * damageMultiplier);
+
+        // Спавним эхо-тень на каждый удар
+        JojoEffects.spawnAfterimage(this, this.stand, cfg.tint, 220);
 
         const enemiesList = this.enemies.getChildren();
         enemiesList.forEach(enemy => {
@@ -721,7 +841,11 @@ export default class GameScene extends Phaser.Scene {
     onAttackComplete() {
         const cfg = STANDS[this.currentStandIndex];
         this.standAttacking = false;
-        this.stand.setTint(cfg.tint);
+        this.stand.clearTint(); // восстанавливаем яркие сочные цвета пиксель-арта
+        if (this.standAura) {
+            this.standAura.setAlpha(AURA_ALPHA);
+            this.standAura.anims.play(`${cfg.id}-idle`);
+        }
         this.stand.anims.play(`${cfg.id}-idle`);
         this.startPulse();
     }
@@ -1043,6 +1167,9 @@ export default class GameScene extends Phaser.Scene {
         if (this.stand) {
             this.stand.setVisible(false);
             this.standSummoned = false;
+        }
+        if (this.standAura) {
+            this.standAura.setVisible(false);
         }
 
         // Затемняющий оверлей
