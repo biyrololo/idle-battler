@@ -27,8 +27,18 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.speed = PLAYER_CONFIG.speed;
         this.isInvulnerable = false;
         this.isDead = false;
+        this.isCommanding = false;
 
         this.anims.play('player-idle');
+    }
+
+    playCommandPose() {
+        if (this.isDead) return;
+        this.isCommanding = true;
+        this.anims.play('player-attack', true);
+        this.scene.time.delayedCall(280, () => {
+            this.isCommanding = false;
+        });
     }
 
     update(cursors, wasd) {
@@ -54,6 +64,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         if (this.x < GAME_CONFIG.arena.minX) this.x = GAME_CONFIG.arena.minX;
         if (this.x > GAME_CONFIG.arena.maxX) this.x = GAME_CONFIG.arena.maxX;
 
+        // Во время команды атаки игрок стоит в боевой стойке (жест приказа стенду)
+        if (this.isCommanding) {
+            if (this.anims.currentAnim?.key !== 'player-attack') {
+                this.anims.play('player-attack', true);
+            }
+            return;
+        }
+
         // Анимации и поворот
         if (vx !== 0) {
             this.setFlipX(vx < 0);
@@ -72,6 +90,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
         this.hp = Math.max(0, this.hp - amount);
         this.isInvulnerable = true;
+
+        // В JoJo урон владельца мгновенно передается стенду!
+        if (this.scene.onPlayerDamaged) {
+            this.scene.onPlayerDamaged(amount, pushDirection);
+        }
 
         SoundFx.playPlayerHurt();
         this.scene.cameras.main.shake(160, 0.008);

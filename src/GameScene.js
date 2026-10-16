@@ -107,6 +107,9 @@ export default class GameScene extends Phaser.Scene {
         // 4. Создание стендов
         this.createStands();
 
+        // Духовный луч связи души между владельцем и стендом
+        this.standTetherGfx = this.add.graphics().setDepth(16);
+
         // 5. Группа врагов
         this.enemies = this.physics.add.group();
 
@@ -472,10 +475,54 @@ export default class GameScene extends Phaser.Scene {
 
         // Отрисовка HUD
         this.drawHUD();
+
+        // Отрисовка духовного луча связи между владельцем и стендом
+        this.drawStandTether();
     }
 
     // ─────────────────────────────────────────────
-    //  СЛЕДОВАНИЕ СТЕНДА
+    //  ДУХОВНАЯ СВЯЗЬ (Tether) ИГРОКА И СТЕНДА
+    // ─────────────────────────────────────────────
+    drawStandTether() {
+        if (!this.standTetherGfx) return;
+        this.standTetherGfx.clear();
+
+        if (!this.standSummoned || !this.stand || !this.stand.visible || this.isGameOver) return;
+
+        const cfg = STANDS[this.currentStandIndex];
+        const facingRight = !this.player.flipX;
+
+        // Точка выхода на спине/груди игрока
+        const px = this.player.x + (facingRight ? -12 : 12);
+        const py = this.player.y - 75;
+
+        // Точка входа в ядро/пояс стенда
+        const sx = this.stand.x;
+        const sy = this.stand.y + 15;
+
+        // Контрольная точка изгиба энергетического луча
+        const cpx = (px + sx) / 2;
+        const cpy = Math.max(py, sy) + 22 + Math.sin(this.time.now / 200) * 8;
+
+        const pulse = 0.35 + Math.sin(this.time.now / 160) * 0.15;
+
+        // 1. Внешнее мерцающее свечение цвета ауры стенда
+        this.standTetherGfx.lineStyle(10, cfg.tint, pulse * 0.45);
+        this.standTetherGfx.beginPath();
+        this.standTetherGfx.moveTo(px, py);
+        this.standTetherGfx.quadraticBezierTo(cpx, cpy, sx, sy);
+        this.standTetherGfx.strokePath();
+
+        // 2. Внутреннее яркое белое ядро луча
+        this.standTetherGfx.lineStyle(3, 0xffffff, pulse * 0.9);
+        this.standTetherGfx.beginPath();
+        this.standTetherGfx.moveTo(px, py);
+        this.standTetherGfx.quadraticBezierTo(cpx, cpy, sx, sy);
+        this.standTetherGfx.strokePath();
+    }
+
+    // ─────────────────────────────────────────────
+    //  СЛЕДОВАНИЕ СТЕНДА (Парение, а не бег ногами!)
     // ─────────────────────────────────────────────
     handleStandFollow() {
         if (this.standAttacking || !this.stand) return;
@@ -486,7 +533,7 @@ export default class GameScene extends Phaser.Scene {
         // Плавное парение (мистическая левитация стенда вверх-вниз)
         const hoverY = Math.sin(this.time.now / 260) * 8;
 
-        // Позиционируем относительно верхней части тела игрока (player.y - 70)
+        // Позиционируем прямо за плечом владельца в воздухе
         const targetX = player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
         const targetY = (player.y - 70) + STAND_OFFSET.y + hoverY;
 
@@ -497,14 +544,13 @@ export default class GameScene extends Phaser.Scene {
         if (dist < 2) {
             stand.setVelocity(0, 0);
             if (standAura) standAura.setVelocity(0, 0);
-            return;
+        } else {
+            // Плавный духовный полет за игроком
+            stand.x = Phaser.Math.Linear(stand.x, targetX, FOLLOW_LERP);
+            stand.y = Phaser.Math.Linear(stand.y, targetY, FOLLOW_LERP);
         }
 
-        // Плавный полет стенда за игроком
-        stand.x = Phaser.Math.Linear(stand.x, targetX, FOLLOW_LERP);
-        stand.y = Phaser.Math.Linear(stand.y, targetY, FOLLOW_LERP);
-
-        // Аура строго повторяет позицию и ориентацию
+        // Аура строго повторяет позицию
         if (standAura) {
             standAura.x = stand.x;
             standAura.y = stand.y;
@@ -515,22 +561,25 @@ export default class GameScene extends Phaser.Scene {
         stand.setFlipX(flip);
         if (standAura) standAura.setFlipX(flip);
 
-        // Синхронизация анимаций
-        if (dist > 6) {
-            if (stand.anims.currentAnim?.key !== `${cfg.id}-walk`) {
-                stand.anims.play(`${cfg.id}-walk`, true);
-                if (standAura) standAura.anims.play(`${cfg.id}-walk`, true);
-            }
+        // ВАЖНО ДЛЯ ОЩУЩЕНИЯ СТЕНДА:
+        // Стенд НЕ ходит пешком! Он всегда парит в горделивой стойке духа (idle)
+        // и наклоняется корпусом в направлении полета, оставляя шлейф:
+        const isPlayerRunning = Math.abs(player.body.velocity.x) > 20;
+        const targetAngle = isPlayerRunning
+            ? (facingRight ? 9 : -9) // динамический наклон вперед в полете
+            : Math.sin(this.time.now / 380) * 3; // мягкое покачивание в покое
 
-            // Шлейф (эхо-тени) при быстром перемещении
-            if (Math.random() < 0.12) {
-                JojoEffects.spawnAfterimage(this, stand, cfg.tint, 180);
-            }
-        } else {
-            if (stand.anims.currentAnim?.key !== `${cfg.id}-idle`) {
-                stand.anims.play(`${cfg.id}-idle`, true);
-                if (standAura) standAura.anims.play(`${cfg.id}-idle`, true);
-            }
+        if (isPlayerRunning && Math.random() < 0.15) {
+            JojoEffects.spawnAfterimage(this, stand, cfg.tint, 180);
+        }
+
+        stand.angle = Phaser.Math.Linear(stand.angle, targetAngle, 0.15);
+        if (standAura) standAura.angle = stand.angle;
+
+        // Всегда удерживаем стойку парящего духа (idle)
+        if (stand.anims.currentAnim?.key !== `${cfg.id}-idle`) {
+            stand.anims.play(`${cfg.id}-idle`, true);
+            if (standAura) standAura.anims.play(`${cfg.id}-idle`, true);
         }
     }
 
@@ -559,8 +608,24 @@ export default class GameScene extends Phaser.Scene {
         const facingRight = !this.player.flipX;
         const flip = cfg.flip ? !this.player.flipX : this.player.flipX;
 
-        const startX = this.player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
-        const startY = (this.player.y - 70) + STAND_OFFSET.y;
+        // Взрывной шоквейв ауры прямо из тела владельца!
+        const shock = this.add.circle(this.player.x, this.player.y - 70, 15, cfg.tint, 0.7);
+        shock.setBlendMode(Phaser.BlendModes.ADD);
+        shock.setDepth(19);
+        this.tweens.add({
+            targets: shock,
+            scale: 6,
+            alpha: 0,
+            duration: 320,
+            ease: 'Cubic.Out',
+            onComplete: () => shock.destroy(),
+        });
+
+        // Стенд материализуется прямо из спины владельца и вылетает в позицию
+        const startX = this.player.x;
+        const startY = this.player.y - 65;
+        const targetX = this.player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
+        const targetY = (this.player.y - 70) + STAND_OFFSET.y;
 
         // 1. Аура стенда
         if (this.standAura) {
@@ -569,12 +634,14 @@ export default class GameScene extends Phaser.Scene {
             this.standAura.setFlipX(flip);
             this.standAura.setVisible(true);
             this.standAura.setAlpha(0);
-            this.standAura.setScale(0.3);
+            this.standAura.setScale(0.2);
             this.standAura.setTint(cfg.tint);
             this.standAura.anims.play(`${cfg.id}-idle`);
 
             this.tweens.add({
                 targets: this.standAura,
+                x: targetX,
+                y: targetY,
                 alpha: AURA_ALPHA,
                 scaleX: (cfg.frameW * cfg.scale * AURA_SCALE) / cfg.frameW,
                 scaleY: (cfg.frameH * cfg.scale * AURA_SCALE) / cfg.frameH,
@@ -583,14 +650,14 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
-        // 2. Тело стенда (непрозрачное, четкое!)
+        // 2. Тело стенда (вылетает из спины!)
         this.stand.x = startX;
         this.stand.y = startY;
         this.stand.setFlipX(flip);
         this.stand.setVisible(true);
         this.stand.body.enable = true;
         this.stand.setAlpha(0);
-        this.stand.setScale(0.3);
+        this.stand.setScale(0.2);
         this.stand.clearTint();
         this.stand.anims.play(`${cfg.id}-idle`);
 
@@ -598,6 +665,8 @@ export default class GameScene extends Phaser.Scene {
 
         this.tweens.add({
             targets: this.stand,
+            x: targetX,
+            y: targetY,
             alpha: STAND_ALPHA,
             scaleX: (cfg.frameW * cfg.scale) / cfg.frameW,
             scaleY: (cfg.frameH * cfg.scale) / cfg.frameH,
@@ -610,6 +679,7 @@ export default class GameScene extends Phaser.Scene {
     dismissStand() {
         this.standAttacking = false;
         if (this._pulseTween) { this._pulseTween.stop(); this._pulseTween = null; }
+        if (this.standTetherGfx) this.standTetherGfx.clear();
 
         const cfg = STANDS[this.currentStandIndex];
 
@@ -632,7 +702,7 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
-        // Убираем тело стенда
+        // Убираем тело стенда обратно в тело игрока
         this.tweens.add({
             targets: this.stand,
             alpha: 0,
@@ -771,6 +841,9 @@ export default class GameScene extends Phaser.Scene {
             scale: 1.3,
         });
 
+        // Владелец стенда делает боевой жест приказа (как Джотаро, указывающий вперед!)
+        this.player.playCommandPose();
+
         this.stand.anims.play(`${cfg.id}-attack`);
         if (this.standAura) {
             this.standAura.anims.play(`${cfg.id}-attack`);
@@ -848,6 +921,28 @@ export default class GameScene extends Phaser.Scene {
         }
         this.stand.anims.play(`${cfg.id}-idle`);
         this.startPulse();
+    }
+
+    // ─────────────────────────────────────────────
+    //  СИНХРОНИЗАЦИЯ УРОНА (Владелец и Стенд едины!)
+    // ─────────────────────────────────────────────
+    onPlayerDamaged(amount, pushDirection) {
+        if (!this.standSummoned || !this.stand || !this.stand.visible) return;
+
+        const cfg = STANDS[this.currentStandIndex];
+
+        // Отдача стенда синхронно с владельцем
+        this.stand.x += pushDirection * 20;
+        if (this.standAura) this.standAura.x = this.stand.x;
+
+        // Вспышка урона по стенду
+        this.stand.setTint(0xff3333);
+        if (this.standAura) this.standAura.setTint(0xff0000);
+
+        this.time.delayedCall(160, () => {
+            if (this.stand && !this.standAttacking) this.stand.clearTint();
+            if (this.standAura) this.standAura.setTint(cfg.tint);
+        });
     }
 
     // ─────────────────────────────────────────────
