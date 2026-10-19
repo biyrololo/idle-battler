@@ -110,13 +110,32 @@ export const JojoEffects = {
 
     // Эхо-тень / шлейф стенда при рывке и атаке
     spawnAfterimage(scene, sprite, tint, duration = 240) {
-        if (!sprite || !sprite.active || !sprite.visible) return;
+        if (!scene || !sprite || !sprite.active || sprite.visible === false) return;
 
-        const echo = scene.add.sprite(sprite.x, sprite.y, sprite.texture.key, sprite.frame.name);
+        // Если объект не имеет текстуры (например, графический примитив / Circle)
+        if (!sprite.texture || !sprite.texture.key) {
+            const radius = sprite.radius || (sprite.displayWidth ? sprite.displayWidth / 2 : 18);
+            const echo = scene.add.circle(sprite.x, sprite.y, radius, tint, 0.65);
+            echo.setBlendMode(Phaser.BlendModes.ADD);
+            echo.setDepth((sprite.depth || 10) - 1);
+
+            scene.tweens.add({
+                targets: echo,
+                alpha: 0,
+                scale: 1.35,
+                duration: duration,
+                ease: 'Power1',
+                onComplete: () => echo.destroy(),
+            });
+            return;
+        }
+
+        const frameName = sprite.frame ? sprite.frame.name : undefined;
+        const echo = scene.add.sprite(sprite.x, sprite.y, sprite.texture.key, frameName);
         echo.setDisplaySize(sprite.displayWidth, sprite.displayHeight);
-        echo.setFlipX(sprite.flipX);
-        echo.setOrigin(sprite.originX, sprite.originY);
-        echo.setDepth(sprite.depth - 1);
+        echo.setFlipX(!!sprite.flipX);
+        echo.setOrigin(sprite.originX ?? 0.5, sprite.originY ?? 0.5);
+        echo.setDepth((sprite.depth || 10) - 1);
         echo.setTint(tint);
         echo.setAlpha(0.65);
         echo.setBlendMode(Phaser.BlendModes.ADD);

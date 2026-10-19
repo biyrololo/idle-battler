@@ -77,42 +77,95 @@ export const ENEMY_TYPES = {
             hurt: { start: 0, end: 3, frameRate: 10 },
         },
     },
+
+    bringerOfDeath: {
+        id: 'bringerOfDeath',
+        name: 'Bringer of Death',
+        title: '★ STAND USER ENCOUNTER ★',
+        texture: 'bringerOfDeath',
+        path: 'assets/bringerOfDeath.png',
+        frameW: 140,
+        frameH: 93,
+        scale: 2.3,
+        speed: 85,
+        maxHp: 520,
+        damage: 28,
+        attackRange: 110,
+        attackCooldown: 1500,
+        knockbackResistance: 0.18, // Практически не отбрасывается
+        scoreValue: 2000,
+        isBoss: true,
+        flipX: true, // Спрайт в исходном PNG смотрит влево
+
+        anims: {
+            idle: { start: 0, end: 7, frameRate: 8 },
+            walk: { start: 8, end: 15, frameRate: 9 },
+            attack: { start: 16, end: 23, frameRate: 11 },
+            hurt: { start: 24, end: 27, frameRate: 10 },
+            death: { start: 32, end: 38, frameRate: 7 },
+            cast: { start: 40, end: 47, frameRate: 10 },
+        },
+    },
 };
 
-// Конфигурация волн
+// Конфигурация волн и локаций арены
 export const WAVES_CONFIG = [
     {
         waveNumber: 1,
         title: 'WAVE 1: SLIME PATROL',
+        background: 'sand_bg',
         spawns: [
-            { type: 'blueSlime', count: 6, delayMs: 1500, intervalMs: 2200 },
+            { type: 'blueSlime', count: 6, delayMs: 1200, intervalMs: 2000 },
         ],
     },
     {
         waveNumber: 2,
         title: 'WAVE 2: TOXIC INVASION',
+        background: 'sand_bg',
         spawns: [
-            { type: 'blueSlime', count: 5, delayMs: 1000, intervalMs: 2000 },
-            { type: 'greenSlime', count: 5, delayMs: 3000, intervalMs: 2400 },
+            { type: 'blueSlime', count: 5, delayMs: 1000, intervalMs: 1800 },
+            { type: 'greenSlime', count: 5, delayMs: 2500, intervalMs: 2200 },
         ],
     },
     {
         waveNumber: 3,
-        title: 'WAVE 3: MINOTAUR AWAKENING',
+        title: 'WAVE 3: ANCIENT RUINS',
+        background: 'grass_bg',
         spawns: [
-            { type: 'blueSlime', count: 6, delayMs: 800, intervalMs: 1800 },
-            { type: 'greenSlime', count: 6, delayMs: 2000, intervalMs: 2000 },
-            { type: 'minotaur', count: 2, delayMs: 4000, intervalMs: 6000 },
+            { type: 'blueSlime', count: 6, delayMs: 800, intervalMs: 1600 },
+            { type: 'greenSlime', count: 6, delayMs: 1800, intervalMs: 1800 },
+            { type: 'minotaur', count: 2, delayMs: 3500, intervalMs: 5000 },
         ],
     },
     {
         waveNumber: 4,
-        title: 'WAVE 4: ENDLESS HORDE',
-        endless: true, // после этой волны спавн продолжается бесконечно с нарастающей скоростью
+        title: 'WAVE 4: IRON MINOTAUR GUARDS',
+        background: 'grass_bg',
         spawns: [
-            { type: 'blueSlime', count: 8, delayMs: 500, intervalMs: 1600 },
-            { type: 'greenSlime', count: 8, delayMs: 1500, intervalMs: 1800 },
-            { type: 'minotaur', count: 3, delayMs: 3500, intervalMs: 4500 },
+            { type: 'greenSlime', count: 8, delayMs: 800, intervalMs: 1500 },
+            { type: 'minotaur', count: 3, delayMs: 2500, intervalMs: 4000 },
+        ],
+    },
+    {
+        waveNumber: 5,
+        title: 'WAVE 5: BOSS - BRINGER OF DEATH',
+        background: 'lava_castle_bg',
+        isBossWave: true,
+        spawns: [
+            { type: 'bringerOfDeath', count: 1, delayMs: 1200, intervalMs: 1000 },
+            { type: 'greenSlime', count: 4, delayMs: 4000, intervalMs: 3000 },
+            { type: 'minotaur', count: 1, delayMs: 8000, intervalMs: 1000 },
+        ],
+    },
+    {
+        waveNumber: 6,
+        title: 'WAVE 6: ENDLESS HELL HORDE',
+        background: 'lava_castle_bg',
+        endless: true,
+        spawns: [
+            { type: 'blueSlime', count: 8, delayMs: 500, intervalMs: 1400 },
+            { type: 'greenSlime', count: 8, delayMs: 1200, intervalMs: 1600 },
+            { type: 'minotaur', count: 3, delayMs: 3000, intervalMs: 3800 },
         ],
     },
 ];

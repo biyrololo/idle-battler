@@ -14,10 +14,15 @@ export const GAME_CONFIG = {
         maxX: 1220,
     },
 
-    // Конфиг фонового изображения
+    // Конфиг фоновых изображений по стадиям
     background: {
-        texture: 'background',
+        texture: 'sand_bg',
         path: 'assets/sand_bg.webp',
+    },
+    backgrounds: {
+        sand_bg: 'assets/sand_bg.webp',
+        grass_bg: 'assets/grass_bg.webp',
+        lava_castle_bg: 'assets/lava_castle_bg.webp',
     },
 };
 
