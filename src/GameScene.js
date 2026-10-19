@@ -138,10 +138,29 @@ export default class GameScene extends Phaser.Scene {
         this.enemies = this.physics.add.group();
 
         // 6. UI / HUD
+        // Определение мобильного устройства (для экранного управления)
+        this.isMobileDevice = this.sys.game.device.os.android ||
+                              this.sys.game.device.os.iOS ||
+                              this.sys.game.device.os.iPad ||
+                              this.sys.game.device.os.iPhone ||
+                              window.location.search.includes('mobile') ||
+                              (this.sys.game.device.input.touch && window.innerWidth <= 1100);
+
+        this.mobileControls = {
+            left: false,
+            right: false,
+            guard: false,
+        };
+
         this.createHUD();
 
         // 7. Управление
         this.setupControls();
+
+        if (this.isMobileDevice) {
+            this.input.addPointer(3); // Мультитач для мобилок
+            this.createMobileControls();
+        }
 
         // 8. Таймер появления иероглифов "ゴゴゴ" при призванном стенде
         this.time.addEvent({
@@ -225,14 +244,19 @@ export default class GameScene extends Phaser.Scene {
     // ─────────────────────────────────────────────
     createStands() {
         STANDS.forEach(cfg => {
+            const originX = 0.5;
+            const originY = cfg.originY !== undefined ? cfg.originY : 0.5;
+            const offsetX = cfg.standOffset?.x ?? STAND_OFFSET.x;
+            const offsetY = cfg.standOffset?.y ?? STAND_OFFSET.y;
+
             // 1. Слой ауры стенда
             const aura = this.physics.add.sprite(
-                this.player.x + STAND_OFFSET.x,
-                this.player.y + STAND_OFFSET.y,
+                this.player.x + offsetX,
+                this.player.y + offsetY,
                 cfg.texture
             );
             aura.setDisplaySize(cfg.frameW * cfg.scale * AURA_SCALE, cfg.frameH * cfg.scale * AURA_SCALE);
-            aura.setOrigin(0.5, 0.5);
+            aura.setOrigin(originX, originY);
             aura.setDepth(17);
             aura.setVisible(false);
             aura.setAlpha(0);
@@ -244,12 +268,12 @@ export default class GameScene extends Phaser.Scene {
 
             // 2. Тело стенда
             const spr = this.physics.add.sprite(
-                this.player.x + STAND_OFFSET.x,
-                this.player.y + STAND_OFFSET.y,
+                this.player.x + offsetX,
+                this.player.y + offsetY,
                 cfg.texture
             );
             spr.setDisplaySize(cfg.frameW * cfg.scale, cfg.frameH * cfg.scale);
-            spr.setOrigin(0.5, 0.5);
+            spr.setOrigin(originX, originY);
             spr.setDepth(18);
             spr.setVisible(false);
             spr.setAlpha(0);
@@ -312,15 +336,198 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
-        // Поддержка кликов мыши (ЛКМ - быстрая атака, ПКМ - тяжелый запуск)
+        // Поддержка кликов мыши (ЛКМ - быстрая атака, ПКМ - тяжелый запуск, только на ПК)
         this.input.mouse?.disableContextMenu();
         this.input.on('pointerdown', pointer => {
+            if (this.isMobileDevice) return; // На мобильных устройствах используются сенсорные кнопки!
             if (pointer.rightButtonDown()) {
                 this.triggerHeavyAttack();
             } else {
                 this.triggerAttack();
             }
         });
+    }
+
+    // ─────────────────────────────────────────────
+    //  МОБИЛЬНОЕ СЕНСОРНОЕ УПРАВЛЕНИЕ (TOUCH CONTROLS)
+    // ─────────────────────────────────────────────
+    createMobileControls() {
+        this.mobileControlsContainer = this.add.container(0, 0).setDepth(190);
+
+        // Левая панель: Передвижение и Блок
+        // [ ◀ ] Влево
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 80,
+            y: 620,
+            radius: 38,
+            label: '◀',
+            fontSize: '22px',
+            color: 0x38bdf8,
+            isHold: true,
+            callback: (down) => { this.mobileControls.left = down; },
+        });
+
+        // [ ▶ ] Вправо
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 180,
+            y: 620,
+            radius: 38,
+            label: '▶',
+            fontSize: '22px',
+            color: 0x38bdf8,
+            isHold: true,
+            callback: (down) => { this.mobileControls.right = down; },
+        });
+
+        // [ 🛡️ GUARD ] Блок
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 130,
+            y: 520,
+            radius: 34,
+            label: '🛡️ GUARD',
+            fontSize: '11px',
+            color: 0x10b981,
+            isHold: true,
+            callback: (down) => { this.mobileControls.guard = down; },
+        });
+
+        // Правая панель: Боевые действия и Стенд
+        // [ 👊 ORA ] Быстрая атака (Основная большая кнопка)
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 1180,
+            y: 600,
+            radius: 44,
+            label: '👊 ORA',
+            fontSize: '17px',
+            color: 0xf59e0b,
+            callback: () => this.triggerAttack(),
+        });
+
+        // [ 💥 SMASH ] Тяжелый удар в стену
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 1070,
+            y: 540,
+            radius: 34,
+            label: '💥 SMASH',
+            fontSize: '11px',
+            color: 0xef4444,
+            callback: () => this.triggerHeavyAttack(),
+        });
+
+        // [ ⚡ DASH ] Фантомный рывок
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 1070,
+            y: 640,
+            radius: 34,
+            label: '⚡ DASH',
+            fontSize: '12px',
+            color: 0x06b6d4,
+            callback: () => this.player.dash(),
+        });
+
+        // [ 👻 STAND ] Призыв / Отзыв стенда
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 1190,
+            y: 480,
+            radius: 33,
+            label: '👻 STAND',
+            fontSize: '11px',
+            color: 0xa855f7,
+            callback: () => this.toggleStand(),
+        });
+
+        // [ 🔄 SWAP ] Смена стенда
+        this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 1090,
+            y: 430,
+            radius: 30,
+            label: '🔄 SWAP',
+            fontSize: '11px',
+            color: 0x8b5cf6,
+            callback: () => this.switchStand(+1),
+        });
+
+        // [ ★ HHA ★ ] Heart Heat Attack (Супер-прием / Ульта)
+        this.mobileHHAButton = this.createMobileButton({
+            container: this.mobileControlsContainer,
+            x: 965,
+            y: 590,
+            radius: 36,
+            label: '★ HHA ★',
+            fontSize: '13px',
+            color: 0xec4899,
+            callback: () => this.triggerUltimate(),
+        });
+    }
+
+    createMobileButton({ container, x, y, radius, label, fontSize = '16px', color = 0xfacc15, isHold = false, callback }) {
+        const btnContainer = this.add.container(x, y);
+
+        const bgGfx = this.add.graphics();
+        const hexColor = color;
+
+        const drawButtonGfx = (pressed = false) => {
+            bgGfx.clear();
+            const alphaBg = pressed ? 0.88 : 0.62;
+            bgGfx.fillStyle(0x0f172a, alphaBg);
+            bgGfx.fillCircle(0, 0, radius);
+
+            bgGfx.lineStyle(1, 0xffffff, pressed ? 0.6 : 0.25);
+            bgGfx.strokeCircle(0, 0, radius - 3);
+
+            bgGfx.lineStyle(pressed ? 3.5 : 2.5, hexColor, pressed ? 1.0 : 0.85);
+            bgGfx.strokeCircle(0, 0, radius);
+        };
+
+        drawButtonGfx(false);
+
+        const text = this.add.text(0, 0, label, {
+            fontFamily: '"Impact", "Arial Black", sans-serif',
+            fontSize: fontSize,
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center',
+        }).setOrigin(0.5);
+
+        btnContainer.add([bgGfx, text]);
+
+        const hitArea = this.add.circle(0, 0, radius + 8, 0x000000, 0.001);
+        hitArea.setInteractive({ useHandCursor: true });
+        btnContainer.add(hitArea);
+
+        hitArea.on('pointerdown', () => {
+            drawButtonGfx(true);
+            btnContainer.setScale(0.9);
+            if (isHold) {
+                callback(true);
+            } else {
+                callback();
+            }
+        });
+
+        const release = () => {
+            drawButtonGfx(false);
+            btnContainer.setScale(1.0);
+            if (isHold) {
+                callback(false);
+            }
+        };
+
+        hitArea.on('pointerup', release);
+        hitArea.on('pointerupoutside', release);
+        hitArea.on('pointercancel', release);
+
+        container.add(btnContainer);
+        return btnContainer;
     }
 
     // ─────────────────────────────────────────────
@@ -454,8 +661,10 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.bossBarContainer.add([this.bossBarGfx, this.bossTitleText, this.bossSubTitleText, this.bossPercentText]);
 
-        // 6. ASB R Fighting Game Command Bar снизу экрана
-        this.createBottomCommandBar();
+        // 6. ASB R Fighting Game Command Bar снизу экрана (только на ПК, на мобилках экранные кнопки)
+        if (!this.isMobileDevice) {
+            this.createBottomCommandBar();
+        }
     }
 
     createBottomCommandBar() {
@@ -685,6 +894,11 @@ export default class GameScene extends Phaser.Scene {
         } else if (this.bossBarContainer.visible) {
             this.bossBarContainer.setVisible(false);
         }
+
+        if (this.mobileHHAButton) {
+            const hhaReady = this.standGauge >= 100;
+            this.mobileHHAButton.setAlpha(hhaReady ? 1.0 : 0.6);
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -787,11 +1001,13 @@ export default class GameScene extends Phaser.Scene {
 
         const { player, stand, standAura } = this;
         const facingRight = !player.flipX;
+        const cfg = STANDS[this.currentStandIndex];
+        const isGrounded = !!cfg.isGrounded;
 
         // Если игрок держит блок ([S]) — стенд встает щитом прямо перед ним!
         if (this.player.isBlocking) {
-            const guardTargetX = player.x + (facingRight ? 40 : -40);
-            const guardTargetY = (player.y - 65);
+            const guardTargetX = player.x + (facingRight ? 45 : -45);
+            const guardTargetY = isGrounded ? player.y : (player.y - 65);
 
             stand.x = Phaser.Math.Linear(stand.x, guardTargetX, 0.28);
             stand.y = Phaser.Math.Linear(stand.y, guardTargetY, 0.28);
@@ -802,7 +1018,6 @@ export default class GameScene extends Phaser.Scene {
                 standAura.setAlpha(0.8);
             }
 
-            const cfg = STANDS[this.currentStandIndex];
             const flip = cfg.flip ? !player.flipX : player.flipX;
             stand.setFlipX(flip);
             if (standAura) standAura.setFlipX(flip);
@@ -810,11 +1025,19 @@ export default class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Плавное парение (мистическая левитация стенда вверх-вниз)
-        const hoverY = Math.sin(this.time.now / 260) * 8;
-
-        const targetX = player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
-        const targetY = (player.y - 70) + STAND_OFFSET.y + hoverY;
+        let targetX, targetY;
+        if (isGrounded) {
+            // Наземный стенд (Слайм) скользит рядом с игроком по земле!
+            const offsetX = cfg.standOffset?.x ?? -55;
+            const offsetY = cfg.standOffset?.y ?? 0;
+            targetX = player.x + (facingRight ? offsetX : -offsetX);
+            targetY = player.y + offsetY;
+        } else {
+            // Плавное парение (мистическая левитация стенда вверх-вниз)
+            const hoverY = Math.sin(this.time.now / 260) * 8;
+            targetX = player.x + (facingRight ? STAND_OFFSET.x : -STAND_OFFSET.x);
+            targetY = (player.y - 70) + STAND_OFFSET.y + hoverY;
+        }
 
         const dx = targetX - stand.x;
         const dy = targetY - stand.y;
@@ -833,16 +1056,15 @@ export default class GameScene extends Phaser.Scene {
             standAura.y = stand.y;
         }
 
-        const cfg = STANDS[this.currentStandIndex];
         const flip = cfg.flip ? !player.flipX : player.flipX;
         stand.setFlipX(flip);
         if (standAura) standAura.setFlipX(flip);
 
-        // Наклон корпуса в полете
+        // Наклон корпуса в движении
         const isPlayerRunning = Math.abs(player.body.velocity.x) > 20;
-        const targetAngle = isPlayerRunning
-            ? (facingRight ? 9 : -9)
-            : Math.sin(this.time.now / 380) * 3;
+        const targetAngle = isGrounded
+            ? (isPlayerRunning ? (facingRight ? 3 : -3) : 0)
+            : (isPlayerRunning ? (facingRight ? 9 : -9) : Math.sin(this.time.now / 380) * 3);
 
         if (isPlayerRunning && Math.random() < 0.15) {
             JojoEffects.spawnAfterimage(this, stand, cfg.tint, 180);
@@ -1198,7 +1420,11 @@ export default class GameScene extends Phaser.Scene {
 
         const forwardOffset = facingRight ? forwardDistance : -forwardDistance;
         this.stand.x += forwardOffset;
-        this.stand.y -= 8;
+        if (cfg.isGrounded) {
+            this.stand.y = this.player.y + (cfg.standOffset?.y ?? 0);
+        } else {
+            this.stand.y -= 8;
+        }
         this.stand.setVelocity(0, 0);
 
         if (this.standAura) {
@@ -1209,10 +1435,8 @@ export default class GameScene extends Phaser.Scene {
 
         JojoEffects.spawnAfterimage(this, this.stand, cfg.attackTint, 300);
 
-        this.cameras.main.shake(140, cfg.cameraShake);
-        SoundFx.playPunch(cfg.hitsCount === 1);
-
-        JojoEffects.showCombatText(this, this.stand.x, this.stand.y - 70, cfg.shout, {
+        const shoutY = cfg.isGrounded ? this.stand.y - 45 : this.stand.y - 70;
+        JojoEffects.showCombatText(this, this.stand.x, shoutY, cfg.shout, {
             color: '#facc15',
             fontSize: '32px',
             scale: 1.3,
@@ -1220,20 +1444,54 @@ export default class GameScene extends Phaser.Scene {
 
         this.player.playCommandPose();
 
-        this.stand.anims.play(`${cfg.id}-attack`);
+        const attackKey = `${cfg.id}-attack`;
+        this.stand.anims.play(attackKey);
         if (this.standAura) {
-            this.standAura.anims.play(`${cfg.id}-attack`);
+            this.standAura.anims.play(attackKey);
         }
 
-        // Число ударов с учетом баффа The Star
-        const totalHits = cfg.hitsCount + (this.player.buffs.extraBarrageHits || 0);
-        const hitInterval = Math.max(65, Math.floor(cfg.attackDuration / totalHits));
-        for (let i = 0; i < totalHits; i++) {
-            this.time.delayedCall(i * hitInterval, () => {
-                if (this.isGameOver || !this.standAttacking) return;
-                this.executeHitboxStrike(cfg, facingRight, i + 1 === totalHits);
-            });
-        }
+        // Привязка ударов к точным кадрам анимации (Frame-perfect hits)
+        const hitFrames = cfg.hitFrames && cfg.hitFrames.length > 0
+            ? cfg.hitFrames
+            : [Math.floor((cfg.anims.attack.end - cfg.anims.attack.start) / 2)];
+
+        const extraHits = this.player.buffs.extraBarrageHits || 0;
+        const totalHitsTarget = hitFrames.length + extraHits;
+        let firedHits = 0;
+        const firedIndices = new Set();
+
+        const strikeAtFrame = () => {
+            if (this.isGameOver || !this.standAttacking) return;
+            firedHits++;
+            const isLast = firedHits >= totalHitsTarget;
+            this.executeHitboxStrike(cfg, facingRight, isLast);
+        };
+
+        const animUpdateHandler = (anim, frame) => {
+            if (anim.key !== attackKey || !this.standAttacking) return;
+            const relIdx = frame.index - 1;
+            if (hitFrames.includes(relIdx) && !firedIndices.has(relIdx)) {
+                firedIndices.add(relIdx);
+                strikeAtFrame();
+            }
+        };
+
+        this.stand.on(Phaser.Animations.Events.ANIMATION_UPDATE, animUpdateHandler);
+
+        this.stand.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+            this.stand.off(Phaser.Animations.Events.ANIMATION_UPDATE, animUpdateHandler);
+
+            // Если есть бафф дополнительных ударов (The Star)
+            if (extraHits > 0 && firedHits < totalHitsTarget) {
+                const remaining = totalHitsTarget - firedHits;
+                for (let e = 0; e < remaining; e++) {
+                    this.time.delayedCall((e + 1) * 65, () => strikeAtFrame());
+                }
+            } else if (firedHits === 0) {
+                // Страховочный удар, если анимация завершилась без триггера
+                strikeAtFrame();
+            }
+        });
     }
 
     executeHitboxStrike(cfg, facingRight, isLastHit) {
@@ -1304,12 +1562,11 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (hitAny) {
+            this.cameras.main.shake(140, cfg.cameraShake);
             if (!this.isTimeStopped) {
                 JojoEffects.hitStop(this, 50);
             }
-            if (!isLastHit) {
-                SoundFx.playPunch(false);
-            }
+            SoundFx.playPunch(isLastHit || cfg.hitsCount === 1);
         }
     }
 
@@ -1752,6 +2009,7 @@ export default class GameScene extends Phaser.Scene {
     // ─────────────────────────────────────────────
     showTarotSelection(nextWaveIdx) {
         if (this.isGameOver) return;
+        if (this.mobileControlsContainer) this.mobileControlsContainer.setVisible(false);
 
         const cards = getRandomTarotCards(3);
 
@@ -1899,6 +2157,9 @@ export default class GameScene extends Phaser.Scene {
                         overlay.destroy();
                         titleText.destroy();
                         subtitleText.destroy();
+                        if (this.mobileControlsContainer && !this.isGameOver) {
+                            this.mobileControlsContainer.setVisible(true);
+                        }
                         this.time.delayedCall(400, () => this.startWave(nextWaveIdx));
                     },
                 });
@@ -1906,6 +2167,75 @@ export default class GameScene extends Phaser.Scene {
 
             cardContainers.push(cardCont);
         });
+    }
+
+    // ─────────────────────────────────────────────
+    //  БЕСКОНЕЧНЫЙ РЕЖИМ (ENDLESS WAVES & FREQUENT BOSSES)
+    // ─────────────────────────────────────────────
+    getEndlessWaveConfig(waveIdx) {
+        const endlessRound = waveIdx - (WAVES_CONFIG.length - 1) + 1;
+        const bgList = ['sand_bg', 'grass_bg', 'lava_castle_bg'];
+        const selectedBg = bgList[waveIdx % bgList.length];
+
+        // Частое появление боссов:
+        // - Каждый четный раунд (раунд 2, 4, 6... т.е. волны 7, 9, 11...) - битва с боссом!
+        // - Начиная с 3 раунда, в нечетных раундах спавнится внезапный босс-засада!
+        // - С 4 раунда в босс-раундах спавнятся сразу 2 босса Bringer of Death!
+        const isBossRound = (endlessRound % 2 === 0);
+        const hasAmbushBoss = !isBossRound && endlessRound >= 3;
+
+        const baseBlueSlimes = Math.min(20, 6 + endlessRound * 2);
+        const baseGreenSlimes = Math.min(18, 5 + endlessRound * 2);
+        const minotaurCount = Math.min(8, 2 + Math.floor(endlessRound * 1.2));
+        const bossCount = isBossRound ? (endlessRound >= 4 ? 2 : 1) : (hasAmbushBoss ? 1 : 0);
+
+        const spawns = [
+            {
+                type: 'blueSlime',
+                count: baseBlueSlimes,
+                delayMs: 500,
+                intervalMs: Math.max(650, 1400 - endlessRound * 75),
+            },
+            {
+                type: 'greenSlime',
+                count: baseGreenSlimes,
+                delayMs: 1200,
+                intervalMs: Math.max(750, 1500 - endlessRound * 75),
+            },
+            {
+                type: 'minotaur',
+                count: minotaurCount,
+                delayMs: 2200,
+                intervalMs: Math.max(1600, 3600 - endlessRound * 140),
+            },
+        ];
+
+        if (bossCount > 0) {
+            spawns.push({
+                type: 'bringerOfDeath',
+                count: bossCount,
+                delayMs: isBossRound ? 1500 : 6500,
+                intervalMs: 8000,
+            });
+        }
+
+        let title = `ENDLESS HORDE (ROUND ${endlessRound})`;
+        if (isBossRound) {
+            title = bossCount > 1
+                ? `TWIN DEATH LORDS (ROUND ${endlessRound})`
+                : `DEATH INCARNATE (ROUND ${endlessRound})`;
+        } else if (hasAmbushBoss) {
+            title = `HELL AMBUSH (ROUND ${endlessRound})`;
+        }
+
+        return {
+            waveNumber: waveIdx + 1,
+            title,
+            background: selectedBg,
+            isBossWave: isBossRound || hasAmbushBoss,
+            endless: true,
+            spawns,
+        };
     }
 
     // ─────────────────────────────────────────────
@@ -1917,20 +2247,18 @@ export default class GameScene extends Phaser.Scene {
         this.currentWaveIndex = waveIdx;
         this.waveInProgress = true;
 
-        const waveCfg = WAVES_CONFIG[waveIdx] || WAVES_CONFIG[WAVES_CONFIG.length - 1];
         const isEndless = waveIdx >= WAVES_CONFIG.length - 1;
+        const waveCfg = isEndless ? this.getEndlessWaveConfig(waveIdx) : WAVES_CONFIG[waveIdx];
 
         // Смена фона арены при переходе стадий
         if (waveCfg.background) {
             this.updateStageBackground(waveCfg.background);
         }
 
-        const waveTitle = isEndless
-            ? `★ WAVE ${waveIdx + 1}: ENDLESS BATTLE ★`
-            : `★ ${waveCfg.title} ★`;
+        const waveTitle = `★ ${waveCfg.title} ★`;
 
         if (this.scoreText) {
-            this.scoreText.setText(isEndless ? '★ ENDLESS BATTLE ★' : `★ ROUND ${waveIdx + 1} ★`);
+            this.scoreText.setText(isEndless ? `★ ENDLESS WAVE ${waveIdx + 1} ★` : `★ ROUND ${waveIdx + 1} ★`);
         }
 
         const banner = this.add.text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 60, waveTitle, {
@@ -2103,8 +2431,16 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (enemy.isBoss) {
-            this.activeBoss = null;
-            if (this.bossBarContainer) this.bossBarContainer.setVisible(false);
+            const livingBoss = this.enemies.getChildren().find(e => e.active && e.isBoss && !e.isDead && e !== enemy);
+            if (livingBoss) {
+                this.activeBoss = livingBoss;
+                if (this.bossTitleText) {
+                    this.bossTitleText.setText(`★ ${livingBoss.config.name.toUpperCase()} ★`);
+                }
+            } else {
+                this.activeBoss = null;
+                if (this.bossBarContainer) this.bossBarContainer.setVisible(false);
+            }
             this.score += 5000;
             this.cameras.main.flash(600, 250, 204, 21);
             JojoEffects.showCombatText(this, GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 50, '★ STAND USER RETIRED! ★', {
@@ -2134,6 +2470,10 @@ export default class GameScene extends Phaser.Scene {
     onPlayerDied() {
         this.isGameOver = true;
         SoundFx.playGameOver();
+
+        if (this.mobileControlsContainer) {
+            this.mobileControlsContainer.setVisible(false);
+        }
 
         if (this.projectiles && this.projectiles.length > 0) {
             this.projectiles.forEach(p => p.destroy && p.destroy());
@@ -2181,19 +2521,27 @@ export default class GameScene extends Phaser.Scene {
             }
         ).setOrigin(0.5).setDepth(301);
 
+        const restartMsg = this.isMobileDevice
+            ? '★ НАЖМИ СЮДА ЧТОБЫ ВОСКРЕСНУТЬ ★'
+            : 'Нажми [ R ] или нажми сюда чтобы попробовать снова';
+
         const restartText = this.add.text(
             GAME_CONFIG.width / 2,
             GAME_CONFIG.height / 2 + 85,
-            'Нажми [ R ] чтобы попробовать снова',
+            restartMsg,
             {
                 fontFamily: 'sans-serif',
                 fontSize: '20px',
                 fontStyle: 'bold',
                 fill: '#ffffff',
                 backgroundColor: '#dc2626',
-                padding: { x: 16, y: 8 },
+                padding: { x: 18, y: 10 },
             }
-        ).setOrigin(0.5).setDepth(301);
+        ).setOrigin(0.5).setDepth(301).setInteractive({ useHandCursor: true });
+
+        restartText.on('pointerdown', () => {
+            this.scene.restart();
+        });
 
         this.tweens.add({
             targets: restartText,

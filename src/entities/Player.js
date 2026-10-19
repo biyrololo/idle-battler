@@ -119,8 +119,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             return;
         }
 
-        // Блок на [S] / [Вниз]
-        const down = cursors.down.isDown || wasd.down.isDown;
+        // Блок на [S] / [Вниз] или мобильную кнопку GUARD
+        const down = (cursors?.down?.isDown) || (wasd?.down?.isDown) || this.scene.mobileControls?.guard;
         if (down) {
             this.isBlocking = true;
             this.setVelocityX(0);
@@ -134,8 +134,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             this.isBlocking = false;
         }
 
-        const left = cursors.left.isDown || wasd.left.isDown;
-        const right = cursors.right.isDown || wasd.right.isDown;
+        const left = (cursors?.left?.isDown) || (wasd?.left?.isDown) || this.scene.mobileControls?.left;
+        const right = (cursors?.right?.isDown) || (wasd?.right?.isDown) || this.scene.mobileControls?.right;
 
         const effectiveSpeed = this.speed * this.buffs.moveSpeedMult;
         let vx = 0;

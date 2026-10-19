@@ -36,6 +36,7 @@ export const STANDS = [
         hitsCount: 3,           // Количество ударов в серии (ORA ORA ORA!)
         shout: 'ORA ORA ORA!',  // Боевой клич
         cameraShake: 0.006,
+        hitFrames: [7, 8, 9],   // Точные кадры взмахов клинка
 
         anims: {
             idle: { start: 0, end: 8, frameRate: 10 },
@@ -66,17 +67,21 @@ export const STANDS = [
         tint: 0xff3300,
         attackTint: 0xff9900,
         flip: true,
+        isGrounded: true,       // Наземный стенд: скользит по земле, а не висит в воздухе!
+        standOffset: { x: -65, y: 0 },
+        originY: 0.98,
 
         // Боевые параметры: одиночный сокрушительный удар
         damage: 48,
         attackRange: 180,
         attackOffset: 150,
         knockback: 260,         // Огромный толчок
-        attackDuration: 420,
+        attackDuration: 550,
         cooldown: 550,
         hitsCount: 1,
         shout: 'MUDAAA!',
         cameraShake: 0.014,
+        hitFrames: [9],         // Кадр 53: колоссальный сокрушительный удар о землю!
 
         anims: {
             idle: { start: 0, end: 5, frameRate: 8 },
@@ -102,22 +107,26 @@ export const STANDS = [
         path: 'assets/purpleSlime.png',
         frameW: 80,
         frameH: 80,
-        scale: 4.0,
+        scale: 3.2,
         row: 12,
         tint: 0xcc44ff,
         attackTint: 0x00ffcc,
         flip: false,
+        isGrounded: true,       // Наземный стенд: стоит прямо на земле!
+        standOffset: { x: -55, y: 0 },
+        originY: 0.55,          // База слайма на 44 пикселе из 80
 
         // Боевые параметры: двойной ядовитый всплеск
         damage: 24,
         attackRange: 150,
         attackOffset: 140,
         knockback: 160,
-        attackDuration: 380,
+        attackDuration: 450,
         cooldown: 450,
         hitsCount: 2,
         shout: 'DORARARA!',
         cameraShake: 0.008,
+        hitFrames: [5, 6],      // Кадры 77-78: кислотный выброс!
 
         anims: {
             idle: { start: 0, end: 7, frameRate: 10 },
@@ -148,6 +157,7 @@ export const STANDS = [
         tint: 0x44aaff,
         attackTint: 0xffffff,
         flip: false,
+        originY: 0.85,
 
         // Боевые параметры: тяжелый стан-удар
         damage: 40,
@@ -159,6 +169,7 @@ export const STANDS = [
         hitsCount: 1,
         shout: 'ARI ARI ARI!',
         cameraShake: 0.011,
+        hitFrames: [6],         // Кадр 26: удар каменного молота!
 
         anims: {
             idle: { start: 0, end: 5, frameRate: 8 },
