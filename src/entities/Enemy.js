@@ -21,7 +21,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         // Настройка физики и визуала
         this.setCollideWorldBounds(false); // даем зайти из-за экрана
         this.setDisplaySize(typeConfig.frameW * typeConfig.scale, typeConfig.frameH * typeConfig.scale);
-        this.setOrigin(0.5, 1); // якорь по ногам, чтобы все спрайты ровно стояли на земле
+        const originX = typeConfig.originX ?? 0.5;
+        const originY = typeConfig.originY ?? 1;
+        this.setOrigin(originX, originY); // якорь по основанию спрайта
         this.setDepth(15);
 
         // Параметры
@@ -312,8 +314,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         this.hp = Math.max(0, this.hp - amount);
 
-        // Всплывающий урон
-        JojoEffects.showCombatText(this.scene, this.x, this.y - 40, `-${amount}`, {
+        // Всплывающий урон прямо над головой врага
+        const textYOffset = this.config.hpBarOffset ? (this.config.hpBarOffset - 5) : 40;
+        JojoEffects.showCombatText(this.scene, this.x, this.y - textYOffset, `-${amount}`, {
             color: '#ff3344',
             fontSize: '22px',
         });
@@ -447,7 +450,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         const barWidth = 44;
         const barHeight = 5;
         const barX = this.x - barWidth / 2;
-        const barY = this.y - this.displayHeight - 12;
+        const barOffset = this.config.hpBarOffset ?? (this.displayHeight + 12);
+        const barY = this.y - barOffset;
 
         // Фон полоски (темный)
         this.hpBar.fillStyle(0x000000, 0.7);

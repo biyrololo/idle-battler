@@ -21,6 +21,8 @@ export const ENEMY_TYPES = {
         attackCooldown: 1300,
         knockbackResistance: 1.0, // 1.0 = обычный отброс, 0.5 = в 2 раза меньше
         scoreValue: 100,
+        originY: 0.55, // Спрайт центрирован в 80x80; 0.55 ставит основание слайма ровно на землю
+        hpBarOffset: 45,
         
         anims: {
             walk: { start: 12, end: 17, frameRate: 8 },
@@ -45,6 +47,8 @@ export const ENEMY_TYPES = {
         attackCooldown: 1000,
         knockbackResistance: 0.9,
         scoreValue: 150,
+        originY: 0.55,
+        hpBarOffset: 45,
         
         anims: {
             walk: { start: 12, end: 17, frameRate: 10 },

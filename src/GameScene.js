@@ -134,9 +134,6 @@ export default class GameScene extends Phaser.Scene {
         // 4. Создание стендов
         this.createStands();
 
-        // Духовный луч связи души между владельцем и стендом
-        this.standTetherGfx = this.add.graphics().setDepth(16);
-
         // 5. Группа врагов
         this.enemies = this.physics.add.group();
 
@@ -327,49 +324,94 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // ─────────────────────────────────────────────
-    //  UI / HUD
+    //  UI / HUD В СТИЛЕ JOJO: ALL-STAR BATTLE R
     // ─────────────────────────────────────────────
+    drawSlantedRect(gfx, x, y, w, h, skew, fillColor, fillAlpha = 1, lineColor = null, lineWidth = 0) {
+        if (fillColor !== null && fillColor !== undefined) {
+            gfx.fillStyle(fillColor, fillAlpha);
+            gfx.beginPath();
+            gfx.moveTo(x + skew, y);
+            gfx.lineTo(x + w + skew, y);
+            gfx.lineTo(x + w, y + h);
+            gfx.lineTo(x, y + h);
+            gfx.closePath();
+            gfx.fillPath();
+        }
+        if (lineColor !== null && lineColor !== undefined && lineWidth > 0) {
+            gfx.lineStyle(lineWidth, lineColor, 1);
+            gfx.beginPath();
+            gfx.moveTo(x + skew, y);
+            gfx.lineTo(x + w + skew, y);
+            gfx.lineTo(x + w, y + h);
+            gfx.lineTo(x, y + h);
+            gfx.closePath();
+            gfx.strokePath();
+        }
+    }
+
     createHUD() {
         this.hudGraphics = this.add.graphics().setDepth(200);
 
-        // Текст HP
-        this.hpText = this.add.text(32, 28, 'HP: 100 / 100', {
+        // 1. Левый блок (1P Player Emblem & Info)
+        this.playerBadgeText = this.add.text(78, 12, '1P  STAND USER: FANTASY WARRIOR', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: '16px',
+            fontSize: '13px',
+            fill: '#facc15',
+            stroke: '#1e1b4b',
+            strokeThickness: 3,
+        }).setDepth(201);
+
+        this.hpText = this.add.text(310, 31, '100 / 100', {
+            fontFamily: '"Impact", "Arial Black", sans-serif',
+            fontSize: '13px',
             fill: '#ffffff',
             stroke: '#000000',
             strokeThickness: 3,
         }).setDepth(201);
 
-        // Текст Stand Gauge
-        this.standGaugeText = this.add.text(32, 60, 'STAND POWER: 0%', {
+        this.standGaugeText = this.add.text(78, 56, 'HH GAUGE: 0% [Lv. 1]', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: '13px',
+            fontSize: '11px',
             fill: '#38bdf8',
             stroke: '#000000',
             strokeThickness: 3,
         }).setDepth(201);
 
-        // Центр: Счетчик волны и очков
-        this.scoreText = this.add.text(GAME_CONFIG.width / 2, 24, 'WAVE 1   |   KILLS: 0   |   SCORE: 0', {
+        // 2. Центр: ASB R Round / Wave Championship Crest
+        this.scoreText = this.add.text(GAME_CONFIG.width / 2, 16, '★ ROUND 1  •  WAVE 1 ★', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: '18px',
+            fontSize: '16px',
             fill: '#fde047',
-            stroke: '#78350f',
+            stroke: '#3b0764',
             strokeThickness: 4,
         }).setOrigin(0.5, 0).setDepth(201);
 
-        // Комбо рейтинг (динамически всплывает при атаках)
-        this.comboText = this.add.text(GAME_CONFIG.width / 2, 62, '', {
+        this.scoreSubText = this.add.text(GAME_CONFIG.width / 2, 38, 'KILLS: 0   │   SCORE: 0', {
+            fontFamily: 'sans-serif',
+            fontSize: '12px',
+            fontStyle: 'bold',
+            fill: '#e2e8f0',
+        }).setOrigin(0.5, 0).setDepth(201);
+
+        // 3. Комбо счетчик в стиле ASB R (динамически всплывает при атаках)
+        this.comboText = this.add.text(GAME_CONFIG.width / 2, 70, '', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: '26px',
+            fontSize: '28px',
             fill: '#facc15',
             stroke: '#7c2d12',
             strokeThickness: 5,
         }).setOrigin(0.5, 0).setDepth(205).setVisible(false);
 
-        // Справа: Карточка активного стенда
-        this.standCardName = this.add.text(GAME_CONFIG.width - 25, 24, '', {
+        // 4. Справа: Карточка активного стенда в стиле ASB R
+        this.standCardTitle = this.add.text(GAME_CONFIG.width - 25, 12, '『 STAND MODE 』  [Q ◄ ► E]', {
+            fontFamily: 'sans-serif',
+            fontSize: '11px',
+            fontStyle: 'bold',
+            fill: '#94a3b8',
+            align: 'right',
+        }).setOrigin(1, 0).setDepth(201);
+
+        this.standCardName = this.add.text(GAME_CONFIG.width - 25, 27, '', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
             fontSize: '20px',
             fill: '#c084fc',
@@ -380,133 +422,264 @@ export default class GameScene extends Phaser.Scene {
 
         this.standCardSubtitle = this.add.text(GAME_CONFIG.width - 25, 52, '', {
             fontFamily: 'sans-serif',
-            fontSize: '13px',
+            fontSize: '12px',
             fontStyle: 'bold',
             fill: '#ffffff',
-            backgroundColor: '#00000088',
-            padding: { x: 6, y: 3 },
             align: 'right',
         }).setOrigin(1, 0).setDepth(201);
 
         this.updateStandCardUI();
 
-        // Верхний полоса здоровья Босса
-        this.bossBarContainer = this.add.container(GAME_CONFIG.width / 2, 70).setDepth(215).setVisible(false);
+        // 5. Верхний полоса здоровья Босса в стиле ASB R
+        this.bossBarContainer = this.add.container(GAME_CONFIG.width / 2, 85).setDepth(215).setVisible(false);
         this.bossBarGfx = this.add.graphics();
-        this.bossTitleText = this.add.text(0, -20, '★ STAND USER: BRINGER OF DEATH ★', {
+        this.bossTitleText = this.add.text(0, -22, '★ ENEMY STAND USER: BRINGER OF DEATH ★', {
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: '17px',
+            fontSize: '16px',
             fill: '#ef4444',
-            stroke: '#000000',
+            stroke: '#180000',
             strokeThickness: 4,
         }).setOrigin(0.5);
-        this.bossPercentText = this.add.text(0, 0, '100%', {
+        this.bossSubTitleText = this.add.text(0, -7, 'STAND: 『 REAPER OF SOULS 』', {
+            fontFamily: 'sans-serif',
+            fontSize: '11px',
+            fontStyle: 'bold',
+            fill: '#fca5a5',
+        }).setOrigin(0.5);
+        this.bossPercentText = this.add.text(0, 10, '520 / 520 (100%)', {
             fontFamily: 'sans-serif',
             fontSize: '11px',
             fontStyle: 'bold',
             fill: '#ffffff',
         }).setOrigin(0.5);
-        this.bossBarContainer.add([this.bossBarGfx, this.bossTitleText, this.bossPercentText]);
+        this.bossBarContainer.add([this.bossBarGfx, this.bossTitleText, this.bossSubTitleText, this.bossPercentText]);
 
-        // Подсказка снизу экрана
-        this.add.text(
-            GAME_CONFIG.width / 2,
-            GAME_CONFIG.height - 24,
-            '[A][D] Бег  |  [S] Блок (-90%)  |  [Shift] Рывок  |  [Пробел] Атака  |  [C] Тяжелый запуск  |  [X] УЛЬТА (100%)  |  [F] Стенд',
-            {
+        // 6. ASB R Fighting Game Command Bar снизу экрана
+        this.createBottomCommandBar();
+    }
+
+    createBottomCommandBar() {
+        const bottomY = GAME_CONFIG.height - 18;
+        const keys = [
+            { key: 'A D', label: 'MOVE', color: '#94a3b8' },
+            { key: 'S', label: 'GUARD (-90%)', color: '#38bdf8' },
+            { key: 'SHIFT', label: 'DASH', color: '#a78bfa' },
+            { key: 'SPACE', label: 'RUSH', color: '#facc15' },
+            { key: 'C', label: 'HEAVY SMASH', color: '#f97316' },
+            { key: 'F', label: 'STAND ON/OFF', color: '#4ade80' },
+            { key: 'X', label: 'HHA SUPER', color: '#f43f5e' },
+        ];
+
+        const cont = this.add.container(GAME_CONFIG.width / 2, bottomY).setDepth(201);
+        const bgGfx = this.add.graphics();
+        const totalW = 940;
+        const totalH = 26;
+        this.drawSlantedRect(bgGfx, -totalW / 2, -totalH / 2, totalW, totalH, 8, 0x020617, 0.88, 0xfacc15, 1);
+        cont.add(bgGfx);
+
+        let curX = -totalW / 2 + 25;
+        keys.forEach(k => {
+            const keyText = this.add.text(curX, 0, `[${k.key}]`, {
+                fontFamily: '"Impact", "Arial Black", sans-serif',
+                fontSize: '12px',
+                fill: k.color,
+            }).setOrigin(0, 0.5);
+            curX += keyText.width + 5;
+
+            const labelText = this.add.text(curX, 0, `${k.label}`, {
                 fontFamily: 'sans-serif',
-                fontSize: '13px',
+                fontSize: '11px',
                 fontStyle: 'bold',
                 fill: '#e2e8f0',
-                backgroundColor: '#000000b0',
-                padding: { x: 14, y: 5 },
-            }
-        ).setOrigin(0.5, 1).setDepth(201);
+            }).setOrigin(0, 0.5);
+            curX += labelText.width + 18;
+
+            cont.add([keyText, labelText]);
+        });
     }
 
     updateStandCardUI() {
         const cfg = STANDS[this.currentStandIndex];
         const hexColor = '#' + cfg.tint.toString(16).padStart(6, '0');
-        this.standCardName.setText(`STAND: ${cfg.label}  [Q ◄ ► E]`);
+        const stateSymbol = this.standSummoned ? '● ACTIVE' : '○ STANDBY';
+        this.standCardName.setText(`『 ${cfg.label.toUpperCase()} 』`);
         this.standCardName.setFill(hexColor);
-        this.standCardSubtitle.setText(cfg.subtitle);
+        this.standCardSubtitle.setText(`${stateSymbol}  │  ${cfg.subtitle}`);
     }
 
     drawHUD() {
         this.hudGraphics.clear();
 
-        // 1. HP BAR игрока (длина 240px, высота 22px)
-        const hpX = 30;
-        const hpY = 24;
-        const hpW = 240;
+        // 1. ИКОНКА 1P И ЗВЕЗДА ДЖОСТАРОВ
+        const badgeX = 22;
+        const badgeY = 22;
+        const badgeW = 44;
+        const badgeH = 48;
+        this.drawSlantedRect(this.hudGraphics, badgeX, badgeY, badgeW, badgeH, 6, 0x1e1b4b, 0.95, 0xfacc15, 2);
+
+        // Внутренняя золотая звезда JoJo
+        this.hudGraphics.fillStyle(0xfde047, 1);
+        this.hudGraphics.fillCircle(badgeX + badgeW / 2 + 3, badgeY + 16, 7);
+        this.hudGraphics.fillStyle(0x1e1b4b, 1);
+        this.hudGraphics.fillCircle(badgeX + badgeW / 2 + 3, badgeY + 16, 3);
+
+        // 2. LIFE GAUGE (Шкала здоровья 1P в стиле ASB R)
+        const hpX = 74;
+        const hpY = 28;
+        const hpW = 310;
         const hpH = 22;
+        const hpSkew = 12;
 
-        this.hudGraphics.fillStyle(0x000000, 0.85);
-        this.hudGraphics.fillRect(hpX - 3, hpY - 3, hpW + 6, hpH + 6);
-        this.hudGraphics.lineStyle(2, 0xf59e0b, 1);
-        this.hudGraphics.strokeRect(hpX - 3, hpY - 3, hpW + 6, hpH + 6);
+        // Внешняя подложка и золотая рамка
+        this.drawSlantedRect(this.hudGraphics, hpX - 2, hpY - 2, hpW + 4, hpH + 4, hpSkew, 0x000000, 0.95, 0xfacc15, 2);
+        // Темно-красный фон урона
+        this.drawSlantedRect(this.hudGraphics, hpX, hpY, hpW, hpH, hpSkew, 0x450a0a, 0.9);
 
-        this.hudGraphics.fillStyle(0x450a0a, 0.9);
-        this.hudGraphics.fillRect(hpX, hpY, hpW, hpH);
-
+        // Заполнение текущего здоровья
         const hpPercent = Math.max(0, this.player.hp / this.player.maxHp);
-        const hpColor = hpPercent > 0.4 ? 0x22c55e : (hpPercent > 0.2 ? 0xeab308 : 0xef4444);
-        this.hudGraphics.fillStyle(hpColor, 1);
-        this.hudGraphics.fillRect(hpX, hpY, hpW * hpPercent, hpH);
+        if (hpPercent > 0) {
+            const currentHpW = Math.max(8, hpW * hpPercent);
+            const hpColor = hpPercent > 0.4 ? 0x22c55e : (hpPercent > 0.2 ? 0xeab308 : 0xef4444);
+            this.drawSlantedRect(this.hudGraphics, hpX, hpY, currentHpW, hpH, hpSkew * (currentHpW / hpW), hpColor, 1);
 
-        this.hpText.setText(`HP: ${this.player.hp} / ${this.player.maxHp}`);
-
-        // 2. STAND GAUGE BAR
-        const sgX = 30;
-        const sgY = 58;
-        const sgW = 200;
-        const sgH = 15;
-        const isReady = this.standGauge >= this.maxStandGauge;
-
-        this.hudGraphics.fillStyle(0x000000, 0.7);
-        this.hudGraphics.fillRect(sgX - 2, sgY - 2, sgW + 4, sgH + 4);
-
-        if (isReady) {
-            const pulse = (Math.sin(this.time.now / 150) + 1) / 2;
-            this.hudGraphics.lineStyle(2, 0xfacc15, 0.7 + pulse * 0.3);
-            this.hudGraphics.strokeRect(sgX - 2, sgY - 2, sgW + 4, sgH + 4);
-
-            this.hudGraphics.fillStyle(0xf59e0b, 1);
-            this.hudGraphics.fillRect(sgX, sgY, sgW, sgH);
-
-            this.standGaugeText.setText('★ ULTIMATE READY! [X] ★');
-            this.standGaugeText.setFill('#fde047');
-        } else {
-            this.hudGraphics.fillStyle(0x0c4a6e, 0.9);
-            this.hudGraphics.fillRect(sgX, sgY, sgW, sgH);
-
-            const sgPercent = Math.min(1, this.standGauge / this.maxStandGauge);
-            this.hudGraphics.fillStyle(0x06b6d4, 1);
-            this.hudGraphics.fillRect(sgX, sgY, sgW * sgPercent, sgH);
-
-            this.standGaugeText.setText(`STAND GAUGE: ${Math.floor(sgPercent * 100)}%`);
-            this.standGaugeText.setFill('#38bdf8');
+            // Блик на верхнем скошенном ребре (Arcade Gloss)
+            this.hudGraphics.lineStyle(2, 0xffffff, 0.4);
+            this.hudGraphics.beginPath();
+            this.hudGraphics.moveTo(hpX + hpSkew, hpY + 2);
+            this.hudGraphics.lineTo(hpX + currentHpW + (hpSkew * (currentHpW / hpW)), hpY + 2);
+            this.hudGraphics.strokePath();
         }
 
-        // 3. HP BAR БОССА
+        // Засечки делений HP (25%, 50%, 75%)
+        [0.25, 0.5, 0.75].forEach(tick => {
+            const tx = hpX + hpW * tick;
+            const tSkew = hpSkew * tick;
+            this.hudGraphics.lineStyle(1.5, 0x000000, 0.8);
+            this.hudGraphics.beginPath();
+            this.hudGraphics.moveTo(tx + tSkew, hpY);
+            this.hudGraphics.lineTo(tx + tSkew - 3, hpY + hpH);
+            this.hudGraphics.strokePath();
+            this.hudGraphics.lineStyle(1, 0xfacc15, 0.9);
+            this.hudGraphics.beginPath();
+            this.hudGraphics.moveTo(tx + tSkew + 1, hpY);
+            this.hudGraphics.lineTo(tx + tSkew - 2, hpY + hpH);
+            this.hudGraphics.strokePath();
+        });
+
+        this.hpText.setText(`${this.player.hp} / ${this.player.maxHp}`);
+        this.hpText.x = hpX + hpW - 65;
+
+        // 3. HEART HEAT GAUGE (Шкала супер-приема в стиле ASB R)
+        const sgX = 74;
+        const sgY = 56;
+        const sgW = 270;
+        const sgH = 16;
+        const sgSkew = 10;
+        const isReady = this.standGauge >= this.maxStandGauge;
+
+        // Фон шкалы
+        this.drawSlantedRect(this.hudGraphics, sgX - 2, sgY - 2, sgW + 4, sgH + 4, sgSkew, 0x000000, 0.85);
+
+        if (isReady) {
+            const pulse = (Math.sin(this.time.now / 130) + 1) / 2;
+            const glowColor = pulse > 0.5 ? 0xfacc15 : 0xf59e0b;
+            this.drawSlantedRect(this.hudGraphics, sgX - 2, sgY - 2, sgW + 4, sgH + 4, sgSkew, 0xf59e0b, 1, glowColor, 2.5);
+
+            // Огненная вспышка ульты
+            this.drawSlantedRect(this.hudGraphics, sgX, sgY, sgW, sgH, sgSkew, 0xfde047, 0.95);
+            this.standGaugeText.setText('★ HEART HEAT ATTACK READY! [X] ★');
+            this.standGaugeText.setFill('#ffffff');
+            this.standGaugeText.setStroke('#78350f', 4);
+        } else {
+            this.drawSlantedRect(this.hudGraphics, sgX - 2, sgY - 2, sgW + 4, sgH + 4, sgSkew, null, 0, 0x0284c7, 1.5);
+            this.drawSlantedRect(this.hudGraphics, sgX, sgY, sgW, sgH, sgSkew, 0x082f49, 0.9);
+
+            const sgPercent = Math.min(1, this.standGauge / this.maxStandGauge);
+            if (sgPercent > 0) {
+                const curSgW = Math.max(6, sgW * sgPercent);
+                this.drawSlantedRect(this.hudGraphics, sgX, sgY, curSgW, sgH, sgSkew * (curSgW / sgW), 0x06b6d4, 1);
+            }
+
+            // Уровни шкалы (Stock 1, 2, 3)
+            let levelLabel = 'Lv. 1';
+            if (sgPercent >= 0.66) levelLabel = 'Lv. 3';
+            else if (sgPercent >= 0.33) levelLabel = 'Lv. 2';
+
+            this.standGaugeText.setText(`HEART HEAT: ${Math.floor(sgPercent * 100)}%  [${levelLabel}]`);
+            this.standGaugeText.setFill('#38bdf8');
+            this.standGaugeText.setStroke('#000000', 3);
+        }
+
+        // Разделители запасов Heart Heat на 33% и 66%
+        [0.333, 0.666].forEach(stock => {
+            const sx = sgX + sgW * stock;
+            const sSkew = sgSkew * stock;
+            this.hudGraphics.lineStyle(1.5, 0xfacc15, 0.9);
+            this.hudGraphics.beginPath();
+            this.hudGraphics.moveTo(sx + sSkew, sgY - 1);
+            this.hudGraphics.lineTo(sx + sSkew - 2, sgY + sgH + 1);
+            this.hudGraphics.strokePath();
+        });
+
+        // 4. ЦЕНТРАЛЬНЫЙ ГЕРБ РАУНДА (ASB R Round Crest)
+        const crestW = 280;
+        const crestH = 50;
+        const crestX = GAME_CONFIG.width / 2;
+        const crestY = 12;
+        this.hudGraphics.fillStyle(0x0f172a, 0.9);
+        this.hudGraphics.beginPath();
+        this.hudGraphics.moveTo(crestX - crestW / 2 + 14, crestY);
+        this.hudGraphics.lineTo(crestX + crestW / 2 - 14, crestY);
+        this.hudGraphics.lineTo(crestX + crestW / 2, crestY + crestH / 2);
+        this.hudGraphics.lineTo(crestX + crestW / 2 - 14, crestY + crestH);
+        this.hudGraphics.lineTo(crestX - crestW / 2 + 14, crestY + crestH);
+        this.hudGraphics.lineTo(crestX - crestW / 2, crestY + crestH / 2);
+        this.hudGraphics.closePath();
+        this.hudGraphics.fillPath();
+
+        this.hudGraphics.lineStyle(2, 0xfacc15, 0.95);
+        this.hudGraphics.strokePath();
+
+        // 5. ПРАВАЯ ПЛАШКА СТЕНДА (ASB R Stand Plate)
+        const standCfg = STANDS[this.currentStandIndex];
+        const cardW = 290;
+        const cardH = 56;
+        const cardX = GAME_CONFIG.width - cardW - 20;
+        const cardY = 18;
+        this.drawSlantedRect(this.hudGraphics, cardX, cardY, cardW, cardH, -12, 0x0f172a, 0.92, standCfg.tint, 2);
+
+        // 6. HP BAR БОССА (ASB R Boss Life Gauge)
         if (this.activeBoss && this.activeBoss.active && !this.activeBoss.isDead) {
             this.bossBarContainer.setVisible(true);
             this.bossBarGfx.clear();
 
-            const barW = 520;
-            const barH = 18;
+            const barW = 560;
+            const barH = 20;
             const barX = -barW / 2;
-            const barY = -barH / 2;
+            const barY = -barH / 2 + 10;
+            const bSkew = 14;
 
-            this.bossBarGfx.fillStyle(0x000000, 0.9);
-            this.bossBarGfx.fillRect(barX - 3, barY - 3, barW + 6, barH + 6);
-            this.bossBarGfx.lineStyle(2, 0xdc2626, 1);
-            this.bossBarGfx.strokeRect(barX - 3, barY - 3, barW + 6, barH + 6);
+            // Подложка босса
+            this.drawSlantedRect(this.bossBarGfx, barX - 3, barY - 3, barW + 6, barH + 6, bSkew, 0x000000, 0.92, 0xdc2626, 2);
+            this.drawSlantedRect(this.bossBarGfx, barX, barY, barW, barH, bSkew, 0x450a0a, 0.9);
 
             const bPercent = Math.max(0, this.activeBoss.hp / this.activeBoss.maxHp);
-            const bColor = this.activeBoss.isEnraged ? 0xef4444 : 0x9333ea;
-            this.bossBarGfx.fillStyle(bColor, 1);
-            this.bossBarGfx.fillRect(barX, barY, barW * bPercent, barH);
+            if (bPercent > 0) {
+                const curBW = Math.max(8, barW * bPercent);
+                const bColor = this.activeBoss.isEnraged ? 0xef4444 : 0x9333ea;
+                this.drawSlantedRect(this.bossBarGfx, barX, barY, curBW, barH, bSkew * (curBW / barW), bColor, 1);
+            }
+
+            // Засечки здоровья босса
+            [0.25, 0.5, 0.75].forEach(tick => {
+                const tx = barX + barW * tick;
+                const tSkew = bSkew * tick;
+                this.bossBarGfx.lineStyle(1.5, 0xfacc15, 0.8);
+                this.bossBarGfx.beginPath();
+                this.bossBarGfx.moveTo(tx + tSkew, barY);
+                this.bossBarGfx.lineTo(tx + tSkew - 3, barY + barH);
+                this.bossBarGfx.strokePath();
+            });
 
             this.bossPercentText.setText(`${this.activeBoss.hp} / ${this.activeBoss.maxHp} (${Math.round(bPercent * 100)}%)`);
         } else if (this.bossBarContainer.visible) {
@@ -604,65 +777,6 @@ export default class GameScene extends Phaser.Scene {
 
         // Отрисовка HUD
         this.drawHUD();
-
-        // Отрисовка духовного луча связи между владельцем и стендом
-        this.drawStandTether();
-    }
-
-    // ─────────────────────────────────────────────
-    //  ДУХОВНАЯ СВЯЗЬ (Tether) ИГРОКА И СТЕНДА
-    // ─────────────────────────────────────────────
-    drawStandTether() {
-        if (!this.standTetherGfx) return;
-        this.standTetherGfx.clear();
-
-        if (!this.standSummoned || !this.stand || !this.stand.visible || this.isGameOver) return;
-
-        const cfg = STANDS[this.currentStandIndex];
-        const facingRight = !this.player.flipX;
-
-        // Точка выхода на спине игрока
-        const px = this.player.x + (facingRight ? -12 : 12);
-        const py = this.player.y - 75;
-
-        // Точка входа в ядро стенда
-        const sx = this.stand.x;
-        const sy = this.stand.y + 15;
-
-        // Контрольная точка изгиба энергетического луча
-        const cpx = (px + sx) / 2;
-        const cpy = Math.max(py, sy) + 22 + Math.sin(this.time.now / 200) * 8;
-
-        const pulse = 0.35 + Math.sin(this.time.now / 160) * 0.15;
-
-        // Генерация точек гладкой квадратичной кривой Безье
-        const steps = 14;
-        const pts = [];
-        for (let i = 0; i <= steps; i++) {
-            const t = i / steps;
-            const inv = 1 - t;
-            const bx = inv * inv * px + 2 * inv * t * cpx + t * t * sx;
-            const by = inv * inv * py + 2 * inv * t * cpy + t * t * sy;
-            pts.push({ x: bx, y: by });
-        }
-
-        // 1. Внешнее мерцающее свечение цвета ауры
-        this.standTetherGfx.lineStyle(10, cfg.tint, pulse * 0.45);
-        this.standTetherGfx.beginPath();
-        this.standTetherGfx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i <= steps; i++) {
-            this.standTetherGfx.lineTo(pts[i].x, pts[i].y);
-        }
-        this.standTetherGfx.strokePath();
-
-        // 2. Внутреннее яркое белое ядро луча
-        this.standTetherGfx.lineStyle(3, 0xffffff, pulse * 0.9);
-        this.standTetherGfx.beginPath();
-        this.standTetherGfx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i <= steps; i++) {
-            this.standTetherGfx.lineTo(pts[i].x, pts[i].y);
-        }
-        this.standTetherGfx.strokePath();
     }
 
     // ─────────────────────────────────────────────
@@ -761,6 +875,8 @@ export default class GameScene extends Phaser.Scene {
             SoundFx.playDismiss();
             this.dismissStand();
         }
+
+        this.updateStandCardUI();
     }
 
     summonStand() {
@@ -1813,6 +1929,10 @@ export default class GameScene extends Phaser.Scene {
             ? `★ WAVE ${waveIdx + 1}: ENDLESS BATTLE ★`
             : `★ ${waveCfg.title} ★`;
 
+        if (this.scoreText) {
+            this.scoreText.setText(isEndless ? '★ ENDLESS BATTLE ★' : `★ ROUND ${waveIdx + 1} ★`);
+        }
+
         const banner = this.add.text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 60, waveTitle, {
             fontFamily: '"Impact", "Arial Black", sans-serif',
             fontSize: '36px',
@@ -1977,8 +2097,10 @@ export default class GameScene extends Phaser.Scene {
         // За убийство врага даем дополнительный заряд ульты (+12%)
         this.standGauge = Math.min(this.maxStandGauge, this.standGauge + 12);
 
-        // Обновляем текст счета
-        this.scoreText.setText(`WAVE ${this.currentWaveIndex + 1}   |   KILLS: ${this.kills}   |   SCORE: ${this.score}`);
+        // Обновляем текст счета в центральном гербе
+        if (this.scoreSubText) {
+            this.scoreSubText.setText(`KILLS: ${this.kills}   │   SCORE: ${this.score}`);
+        }
 
         if (enemy.isBoss) {
             this.activeBoss = null;
