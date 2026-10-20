@@ -8,11 +8,21 @@ import { JojoEffects } from '../utils/jojoEffects';
 import { SoundFx } from '../utils/soundFx';
 
 export default class Enemy extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y, typeConfig) {
+    constructor(scene, x, y, typeConfig, scaling = null) {
         super(scene, x, y, typeConfig.texture);
 
         this.scene = scene;
         this.config = typeConfig;
+        this.scaling = scaling || {
+            hpMult: 1,
+            dmgMult: 1,
+            spdMult: 1,
+            cooldownMult: 1,
+            kbResistMult: 1,
+            scoreMult: 1,
+            threatLevel: 1,
+            isEndless: false,
+        };
 
         // Добавляем в сцену и физический мир
         scene.add.existing(this);
@@ -26,17 +36,24 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setOrigin(originX, originY); // якорь по основанию спрайта
         this.setDepth(15);
 
-        // Параметры
-        this.hp = typeConfig.maxHp;
-        this.maxHp = typeConfig.maxHp;
-        this.speed = typeConfig.speed;
-        this.damage = typeConfig.damage;
+        // Параметры с учетом скейлинга по волнам
+        this.maxHp = Math.round(typeConfig.maxHp * this.scaling.hpMult);
+        this.hp = this.maxHp;
+        this.speed = Math.round(typeConfig.speed * this.scaling.spdMult);
+        this.damage = Math.round(typeConfig.damage * this.scaling.dmgMult);
         this.attackRange = typeConfig.attackRange;
-        this.attackCooldown = typeConfig.attackCooldown;
-        this.knockbackResist = typeConfig.knockbackResistance || 1.0;
-        this.scoreValue = typeConfig.scoreValue || 100;
+        this.attackCooldown = Math.round(typeConfig.attackCooldown * this.scaling.cooldownMult);
+        this.knockbackResist = (typeConfig.knockbackResistance || 1.0) * this.scaling.kbResistMult;
+        this.scoreValue = Math.round((typeConfig.scoreValue || 100) * this.scaling.scoreMult);
         this.isBoss = !!typeConfig.isBoss;
         this.initialFlipX = !!typeConfig.flipX || !!typeConfig.flip;
+
+        // Визуальный оттенок угрозы в бесконечном режиме
+        this.baseTint = null;
+        if (this.scaling.isEndless && !this.isBoss) {
+            this.baseTint = this.scaling.threatLevel >= 8 ? 0xffa3bb : 0xffd5b8;
+            this.setTint(this.baseTint);
+        }
 
         this.isAttacking = false;
         this.isCasting = false;
@@ -190,8 +207,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                 onComplete: () => impactGfx.destroy(),
             });
 
-            // Сопутствующий урон по другим врагам (Collateral Damage)
-            this.dealCollateralDamage(bounceDir, 18);
+            // Сопутствующий урон по другим врагам (Collateral Damage с учетом скейлинга)
+            const collateralDmg = Math.round(18 * (this.scaling?.dmgMult || 1.0));
+            this.dealCollateralDamage(bounceDir, collateralDmg);
 
             this.isStunned = true;
             this.scene.time.delayedCall(350, () => {
@@ -343,6 +361,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             if (this.active && !this.isDead) {
                 if (this.isEnraged) {
                     this.setTint(0xff5555);
+                } else if (this.baseTint) {
+                    this.setTint(this.baseTint);
                 } else {
                     this.clearTint();
                 }

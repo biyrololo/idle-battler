@@ -973,7 +973,7 @@ export default class GameScene extends Phaser.Scene {
                         }
                     } else {
                         // Наносим урон игроку (если в блоке — takeDamage снизит на 90%!)
-                        this.player.takeDamage(20, proj.dir);
+                        this.player.takeDamage(proj.damage || 20, proj.dir);
                         proj.destroy();
                         return false;
                     }
@@ -2239,6 +2239,56 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // ─────────────────────────────────────────────
+    //  ДИНАМИЧЕСКИЙ СКЕЙЛИНГ ВРАГОВ ПО ВОЛНАМ (ENEMY SCALING)
+    // ─────────────────────────────────────────────
+    getEnemyWaveScaling(waveIdx) {
+        const isEndless = waveIdx >= WAVES_CONFIG.length - 1;
+
+        if (!isEndless) {
+            // Плавный рост сложности в первых 5 раундах:
+            // Игрок осваивает механики и стенды, но враги не должны быть картонными
+            const hpMult = 1.0 + waveIdx * 0.15;        // +15% HP за волну (+60% к 5-й волне)
+            const dmgMult = 1.0 + waveIdx * 0.10;       // +10% урона за волну (+40% к 5-й волне)
+            const spdMult = 1.0 + waveIdx * 0.03;       // +3% скорости за волну
+            const cooldownMult = Math.max(0.75, 1.0 - waveIdx * 0.05); // Атаки чаще на 5%
+            const kbResistMult = Math.max(0.7, 1.0 - waveIdx * 0.05);  // Стойкость к отбросу
+            const scoreMult = 1.0 + waveIdx * 0.20;     // +20% очков за волну
+            return {
+                hpMult,
+                dmgMult,
+                spdMult,
+                cooldownMult,
+                kbResistMult,
+                scoreMult,
+                threatLevel: waveIdx + 1,
+                isEndless: false,
+            };
+        } else {
+            // Бесконечный режим (Endless Mode):
+            // Так как игрок берет новую карту Таро после КАЖДОЙ волны и накапливает огромный урон,
+            // враги и боссы уверенно масштабируются, чтобы ваншоты исчезли и сохранялся вызов!
+            const endlessRound = waveIdx - (WAVES_CONFIG.length - 1) + 1; // 1, 2, 3...
+            const hpMult = 1.6 + (endlessRound - 1) * 0.42 + Math.pow(endlessRound - 1, 1.22) * 0.15;
+            const dmgMult = 1.4 + (endlessRound - 1) * 0.18;
+            const spdMult = Math.min(1.45, 1.12 + (endlessRound - 1) * 0.04);
+            const cooldownMult = Math.max(0.45, 0.75 - (endlessRound - 1) * 0.05);
+            const kbResistMult = Math.max(0.35, 0.65 - (endlessRound - 1) * 0.05);
+            const scoreMult = 2.0 + (endlessRound - 1) * 0.6;
+            return {
+                hpMult,
+                dmgMult,
+                spdMult,
+                cooldownMult,
+                kbResistMult,
+                scoreMult,
+                threatLevel: waveIdx + 1,
+                endlessRound,
+                isEndless: true,
+            };
+        }
+    }
+
+    // ─────────────────────────────────────────────
     //  СИСТЕМА ВОЛН ВРАГОВ
     // ─────────────────────────────────────────────
     startWave(waveIdx) {
@@ -2249,6 +2299,7 @@ export default class GameScene extends Phaser.Scene {
 
         const isEndless = waveIdx >= WAVES_CONFIG.length - 1;
         const waveCfg = isEndless ? this.getEndlessWaveConfig(waveIdx) : WAVES_CONFIG[waveIdx];
+        const scaling = this.getEnemyWaveScaling(waveIdx);
 
         // Смена фона арены при переходе стадий
         if (waveCfg.background) {
@@ -2261,7 +2312,7 @@ export default class GameScene extends Phaser.Scene {
             this.scoreText.setText(isEndless ? `★ ENDLESS WAVE ${waveIdx + 1} ★` : `★ ROUND ${waveIdx + 1} ★`);
         }
 
-        const banner = this.add.text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 60, waveTitle, {
+        const banner = this.add.text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 65, waveTitle, {
             fontFamily: '"Impact", "Arial Black", sans-serif',
             fontSize: '36px',
             fill: waveCfg.isBossWave ? '#ef4444' : '#fde047',
@@ -2270,21 +2321,37 @@ export default class GameScene extends Phaser.Scene {
             shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 0, fill: true },
         }).setOrigin(0.5).setDepth(210).setScale(0.4);
 
+        const subTitleText = isEndless
+            ? `THREAT LV. ${scaling.threatLevel}  │  HP +${Math.round((scaling.hpMult - 1) * 100)}%  │  ATK +${Math.round((scaling.dmgMult - 1) * 100)}%`
+            : `DANGER LV. ${scaling.threatLevel}  │  HP +${Math.round((scaling.hpMult - 1) * 100)}%`;
+
+        const subBanner = this.add.text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 20, subTitleText, {
+            fontFamily: '"Impact", "Arial Black", sans-serif',
+            fontSize: '18px',
+            fill: '#fde047',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, fill: true },
+        }).setOrigin(0.5).setDepth(210).setScale(0.4);
+
         SoundFx.playWaveStart();
 
         this.tweens.add({
-            targets: banner,
+            targets: [banner, subBanner],
             scale: 1.2,
             duration: 350,
             ease: 'Back.Out',
             onComplete: () => {
                 this.time.delayedCall(1200, () => {
                     this.tweens.add({
-                        targets: banner,
+                        targets: [banner, subBanner],
                         alpha: 0,
-                        y: banner.y - 40,
+                        y: '-=40',
                         duration: 400,
-                        onComplete: () => banner.destroy(),
+                        onComplete: () => {
+                            banner.destroy();
+                            subBanner.destroy();
+                        },
                     });
                 });
             },
@@ -2317,7 +2384,8 @@ export default class GameScene extends Phaser.Scene {
         const spawnX = spawnLeft ? -40 : GAME_CONFIG.width + 40;
         const spawnY = GAME_CONFIG.groundY + 45;
 
-        const enemy = new Enemy(this, spawnX, spawnY, enemyTypeConfig);
+        const scaling = this.getEnemyWaveScaling(this.currentWaveIndex);
+        const enemy = new Enemy(this, spawnX, spawnY, enemyTypeConfig, scaling);
         this.enemies.add(enemy);
     }
 
@@ -2331,13 +2399,18 @@ export default class GameScene extends Phaser.Scene {
         const coreGfx = this.add.circle(startX, projY, 10, 0xffffff, 0.95).setBlendMode(Phaser.BlendModes.ADD).setDepth(19);
         const hpBarGfx = this.add.graphics().setDepth(20);
 
+        const scaling = this.getEnemyWaveScaling(this.currentWaveIndex);
+        const projHp = Math.round(60 * Math.min(3.0, scaling.hpMult * 0.75));
+        const projDmg = Math.round(20 * scaling.dmgMult);
+
         const proj = {
             x: startX,
             y: projY,
             dir,
             speed: 380,
-            hp: 60,
-            maxHp: 60,
+            hp: projHp,
+            maxHp: projHp,
+            damage: projDmg,
             active: true,
             hasDodged: false,
             gfx: projGfx,
