@@ -17,12 +17,12 @@ export const GAME_CONFIG = {
     // Конфиг фоновых изображений по стадиям
     background: {
         texture: 'sand_bg',
-        path: 'assets/sand_bg.webp',
+        path: 'assets/bg1.png',
     },
     backgrounds: {
-        sand_bg: 'assets/sand_bg.webp',
-        grass_bg: 'assets/grass_bg.webp',
-        lava_castle_bg: 'assets/lava_castle_bg.webp',
+        sand_bg: 'assets/bg1.png',
+        grass_bg: 'assets/bg2.png',
+        lava_castle_bg: 'assets/bg3.png',
     },
 };
 
